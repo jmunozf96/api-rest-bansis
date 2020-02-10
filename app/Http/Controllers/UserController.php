@@ -81,9 +81,9 @@ class UserController extends Controller
                 $password_hash = hash('sha256', trim($params->password));
 
                 $usuario = User::where([
-                    'correo' => trim($params->user),
+                    'correo' => trim(str_replace(" ", "", $params->user)),
                 ])->orWhere([
-                    'nick' => trim($params->user),
+                    'nick' => trim(str_replace(" ", "", $params->user)),
                 ])->where([
                     'contraseña' => $password_hash,
                     'estado' => true
