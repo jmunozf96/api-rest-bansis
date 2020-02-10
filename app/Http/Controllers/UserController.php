@@ -78,12 +78,12 @@ class UserController extends Controller
                 $this->respuesta['message'] = 'Los parametros enviados no son correctos';
                 $this->respuesta['error'] = $validacion->errors();
             } else {
-                $password_hash = hash('sha256', $params->password);
+                $password_hash = hash('sha256', trim($params->password));
 
                 $usuario = User::where([
-                    'correo' => $params->user,
+                    'correo' => trim($params->user),
                 ])->orWhere([
-                    'nick' => $params->user,
+                    'nick' => trim($params->user),
                 ])->where([
                     'contraseña' => $password_hash,
                     'estado' => true
