@@ -2,10 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="318a6250-dc75-4bc7-bd8a-e9a07cb1d9c6" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/api-rest-bansis.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/api-rest-bansis.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/php.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/php.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/UserController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/UserController.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -155,7 +152,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1581334310161</updated>
-      <workItem from="1581334319390" duration="10340000" />
+      <workItem from="1581334319390" duration="10505000" />
     </task>
     <servers />
   </component>
