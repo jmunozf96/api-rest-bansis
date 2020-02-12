@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\Helper;
+use App\Helpers\JwtAuth;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -64,6 +65,8 @@ class UserController extends Controller
 
     public function login(Request $request)
     {
+        $jwtAuth = new JwtAuth();
+
         $json = $request->input('json');
         $params = json_decode($json);
         $params_array = json_decode($json, true);
@@ -79,28 +82,17 @@ class UserController extends Controller
                 $this->respuesta['error'] = $validacion->errors();
             } else {
                 $password_hash = hash('sha256', trim($params->password));
+                $signup = $jwtAuth->signup($params->user, $password_hash);
 
-                $usuario = User::where([
-                    'correo' => trim(str_replace(" ", "", $params->user)),
-                ])->orWhere([
-                    'nick' => trim(str_replace(" ", "", $params->user)),
-                ])->where([
-                    'contraseña' => $password_hash,
-                    'estado' => true
-                ])->first();
-
-                if (is_object($usuario)) {
-                    $this->respuesta = $this->response_array('success', 200, 'Usuario logueado con éxito!');
-                    $this->respuesta['usuario'] = $usuario;
-                } else {
-                    $this->respuesta['message'] = 'El usuario no se encuentra registrado.';
+                if (!empty($params->getToken)) {
+                    $signup = $jwtAuth->signup($params->user, $password_hash, true);
                 }
             }
         } else {
             $this->respuesta['message'] = "No se han recibido datos";
         }
 
-        return response()->json($this->respuesta, $this->respuesta['code']);
+        return response()->json($signup, 200);
     }
 
     protected function generarNick($nombres, $apellidos)
