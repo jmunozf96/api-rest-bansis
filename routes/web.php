@@ -15,3 +15,8 @@ Route::post('/api/bansis/login', 'UserController@login');
 Route::resource('/api/emp_destino', 'EmpDestinoController')->except([
     'create', 'edit'
 ]);
+
+//Ruta resource para tipos de caja de empacadora
+Route::resource('/api/emp_tipo_caja', 'EmpTipoCajaController')->except([
+    'create', 'edit'
+]);

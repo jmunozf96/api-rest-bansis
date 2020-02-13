@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\EMP_DESTINO;
+use App\EMP_TIPO_CAJA;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class EmpDestinoController extends Controller
+class EmpTipoCajaController extends Controller
 {
     protected $out;
 
@@ -18,18 +18,17 @@ class EmpDestinoController extends Controller
 
     public function index()
     {
-        $destinos = EMP_DESTINO::all();
+        $tipos_caja = EMP_TIPO_CAJA::all();
 
-        if (!is_null($destinos) && !empty($destinos) && count($destinos) > 0) {
-            $this->out = $this->respuesta_json('success', 200, 'Destinos encontrados.');
-            $this->out['destinos'] = $destinos;
+        if (!is_null($tipos_caja) && !empty($tipos_caja) && count($tipos_caja) > 0) {
+            $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
+            $this->out['tipos_caja'] = $tipos_caja;
         } else {
-            $this->out['message'] = 'No hay destinos registrados';
+            $this->out['message'] = 'No hay datos registrados';
         }
 
         return response()->json($this->out, $this->out['code']);
     }
-
 
     public function store(Request $request)
     {
@@ -38,21 +37,19 @@ class EmpDestinoController extends Controller
 
         if (!empty($params_array) && count($params_array) > 0) {
             $validacion = Validator::make($params_array, [
-                'descripcion' => 'required|unique:EMP_DESTINO,descripcion',
-                'continente' => 'required|alpha'
+                'descripcion' => 'required|unique:EMP_TIPO_CAJA,descripcion'
             ]);
 
             if ($validacion->fails()) {
                 $this->out['message'] = "Los datos enviados no son correctos";
                 $this->out['error'] = $validacion->errors();
             } else {
-                $destino = new EMP_DESTINO();
-                $destino->descripcion = $params_array['descripcion'];
-                $destino->continente = $params_array['continente'];
-                $destino->save();
+                $tipo_caja = new EMP_TIPO_CAJA();
+                $tipo_caja->descripcion = $params_array['descripcion'];
+                $tipo_caja->save();
 
                 $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
-                $this->out['destino'] = $destino;
+                $this->out['tipo_caja'] = $tipo_caja;
             }
 
         } else {
@@ -62,33 +59,30 @@ class EmpDestinoController extends Controller
         return response()->json($this->out, $this->out['code']);
     }
 
-
     public function show($id)
     {
-        $destino = EMP_DESTINO::find($id);
+        $tipo_caja = EMP_TIPO_CAJA::find($id);
 
-        if (is_object($destino) && !empty($destino)) {
+        if (is_object($tipo_caja) && !empty($tipo_caja)) {
             $this->out = $this->respuesta_json('success', 200, 'Dato encontrado.');
-            $this->out['destino'] = $destino;
+            $this->out['tipo_caja'] = $tipo_caja;
         } else {
             $this->out['message'] = 'No existen datos con el parametro enviado.';
         }
         return response()->json($this->out, $this->out['code']);
     }
 
-
     public function update(Request $request, $id)
     {
-        $destino = EMP_DESTINO::find($id);
+        $tipo_caja = EMP_TIPO_CAJA::find($id);
 
-        if (is_object($destino) && !empty($destino)) {
+        if (is_object($tipo_caja) && !empty($tipo_caja)) {
 
             $json = $request->input('json');
             $params_array = json_decode($json, true);
 
             $validacion = Validator::make($params_array, [
-                'descripcion' => 'required',
-                'continente' => 'required|alpha'
+                'descripcion' => 'required'
             ]);
 
             if ($validacion->fails()) {
@@ -98,12 +92,11 @@ class EmpDestinoController extends Controller
                 unset($params_array['id']);
                 unset($params_array['created_at']);
 
-                $destino->descripcion = $params_array['descripcion'];
-                $destino->continente = $params_array['continente'];
-                $destino->save();
+                $tipo_caja->descripcion = $params_array['descripcion'];
+                $tipo_caja->save();
 
                 $this->out = $this->respuesta_json('success', 200, 'Datos actualizados correctamente');
-                $this->out['destino'] = $destino;
+                $this->out['tipo_caja'] = $tipo_caja;
             }
 
         } else {
@@ -112,13 +105,12 @@ class EmpDestinoController extends Controller
         return response()->json($this->out, $this->out['code']);
     }
 
-
     public function destroy($id)
     {
-        $destino = EMP_DESTINO::find($id);
+        $tipo_caja = EMP_TIPO_CAJA::find($id);
 
-        if (is_object($destino) && !empty($destino)) {
-            $destino->delete();
+        if (is_object($tipo_caja) && !empty($tipo_caja)) {
+            $tipo_caja->delete();
             $this->out = $this->respuesta_json('success', 200, 'Dato eliminado correctamente.');
         } else {
             $this->out['message'] = 'No existen datos con el parametro enviado.';
