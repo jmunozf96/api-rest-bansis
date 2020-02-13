@@ -1,16 +1,16 @@
 <?php
 
-namespace App;
+namespace App\Models\Empacadora;
 
 use App\Models\BaseModel;
 use Illuminate\Database\Eloquent\Model;
 
-class EMP_DESTINO extends BaseModel
+class EMP_DISTRIBUIDOR extends BaseModel
 {
-    protected $table = 'EMP_DESTINO';
+    protected $table = 'EMP_DISTRIBUIDOR';
 
     protected $fillable = [
-        'descripcion', 'continente'
+        'descripcion'
     ];
 
     protected $hidden = [

@@ -1,12 +1,13 @@
 <?php
 
-namespace App;
+namespace App\Models\Empacadora;
 
+use App\Models\BaseModel;
 use Illuminate\Database\Eloquent\Model;
 
-class EMP_DISTRIBUIDOR extends Model
+class EMP_TIPO_CAJA extends BaseModel
 {
-    protected $table = 'EMP_DISTRIBUIDOR';
+    protected $table = 'EMP_TIPO_CAJA';
 
     protected $fillable = [
         'descripcion'

@@ -12,16 +12,20 @@ Route::post('/api/bansis/user/create', 'UserController@create')->middleware('api
 Route::post('/api/bansis/login', 'UserController@login');
 
 //Ruta resource para destinos de empacadora
-Route::resource('/api/emp_destino', 'EmpDestinoController')->except([
+Route::resource('/api/emp_destino', 'Empacadora\EmpDestinoController')->except([
     'create', 'edit'
 ]);
 
 //Ruta resource para tipos de caja de empacadora
-Route::resource('/api/emp_tipo_caja', 'EmpTipoCajaController')->except([
+Route::resource('/api/emp_tipo_caja', 'Empacadora\EmpTipoCajaController')->except([
     'create', 'edit'
 ]);
 
 //Ruta resource para distribuidores
-Route::resource('/api/emp_distribuidor', 'EmpDistribuidorController')->except([
+Route::resource('/api/emp_distribuidor', 'Empacadora\EmpDistribuidorController')->except([
+    'create', 'edit'
+]);
+
+Route::resource('/api/emp_caja', 'Empacadora\EmpCajaController')->except([
     'create', 'edit'
 ]);

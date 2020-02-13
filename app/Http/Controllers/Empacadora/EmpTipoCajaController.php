@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Empacadora;
 
-use App\EMP_TIPO_CAJA;
+use App\Models\Empacadora\EMP_TIPO_CAJA;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use App\Http\Controllers\Controller;
 
 class EmpTipoCajaController extends Controller
 {

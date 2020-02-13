@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Empacadora;
 
-use App\EMP_DISTRIBUIDOR;
+use App\Models\Empacadora\EMP_DISTRIBUIDOR;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use App\Http\Controllers\Controller;
 
 class EmpDistribuidorController extends Controller
 {
@@ -37,7 +38,7 @@ class EmpDistribuidorController extends Controller
 
         if (!empty($params_array) && count($params_array) > 0) {
             $validacion = Validator::make($params_array, [
-                'descripcion' => 'required|unique:EMP_TIPO_CAJA,descripcion'
+                'descripcion' => 'required|unique:EMP_DISTRIBUIDOR,descripcion'
             ]);
 
             if ($validacion->fails()) {
