@@ -97,12 +97,65 @@ class EmpCajaController extends Controller
 
     public function update(Request $request, $id)
     {
-        //
+        $caja = EMP_CAJA::find($id);
+
+        if (is_object($caja) && !empty($caja)) {
+            $json = $request->input('json', null);
+            $params = json_decode($json);
+            $params_array = json_decode($json, true);
+
+            if (!empty($params_array) && count($params_array) > 0) {
+                $validacion = Validator::make($params_array,
+                    [
+                        'descripcion' => "required",
+                        'peso_max' => 'required|between:0,99.99',
+                        'peso_min' => 'required|between:0,99.99',
+                        'peso_standard' => 'required|between:0,99.99',
+                        'id_destino' => ['required', 'exists:EMP_DESTINO,id'],
+                        'id_tipoCaja' => ['required', 'exists:EMP_TIPO_CAJA,id'],
+                        'id_distrib' => ['required', 'exists:EMP_DISTRIBUIDOR,id'],
+                        'id_codAllweights' => 'between:0,9999999'
+                    ]);
+
+                if ($validacion->fails()) {
+                    $this->out['message'] = "Los datos enviados no son correctos";
+                    $this->out['error'] = $validacion->errors();
+                } else {
+                    unset($params_array['id']);
+                    unset($params_array['created_at']);
+
+                    $caja->descripcion = $params_array['descripcion'];
+                    $caja->peso_max = $params_array['peso_max'];
+                    $caja->peso_min = $params_array['peso_min'];
+                    $caja->peso_standard = $params_array['peso_standard'];
+                    $caja->id_destino = $params_array['id_destino'];
+                    $caja->id_tipoCaja = $params_array['id_tipoCaja'];
+                    $caja->id_distrib = $params_array['id_distrib'];
+                    $caja->id_codAllweights = $params_array['id_codAllweights'];
+                    $caja->save();
+
+                    $this->out = $this->respuesta_json('success', 200, 'Datos actualizados correctamente');
+                    $this->out['caja'] = $caja;
+                }
+
+            } else {
+                $this->out['message'] = "No se han recibido parametros";
+            }
+        }
+        return response()->json($this->out, $this->out['code']);
     }
 
     public function destroy($id)
     {
-        //
+        $cajas = EMP_CAJA::find($id);
+
+        if (is_object($cajas) && !empty($cajas)) {
+            $cajas->delete();
+            $this->out = $this->respuesta_json('success', 200, 'Dato eliminado correctamente.');
+        } else {
+            $this->out['message'] = 'No existen datos con el parametro enviado.';
+        }
+        return response()->json($this->out, $this->out['code']);
     }
 
     public function respuesta_json(...$datos)
