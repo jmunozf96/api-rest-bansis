@@ -13,7 +13,7 @@ CREATE TABLE SIS_USUARIOS
     created_at     datetime default null,
     updated_at     datetime default null,
     remember_token varchar(255),
-    estado         bit,
+    estado         bit default 1,
     CONSTRAINT pk_idUsuario PRIMARY KEY (id)
 )
 
@@ -21,9 +21,10 @@ CREATE TABLE EMP_DESTINO
 (
     id          int identity (1,1) not null,
     descripcion varchar(100)       not null,
+    continente  varchar(100)       not null,
     created_at  datetime default null,
     updated_at  datetime default null,
-    estado      bit,
+    estado      bit      default 1,
     CONSTRAINT pk_destino PRIMARY KEY (id)
 )
 
@@ -33,7 +34,7 @@ CREATE TABLE EMP_TIPO_CAJA
     descripcion varchar(150)       not null,
     created_at  datetime default null,
     updated_at  datetime default null,
-    estado      bit,
+    estado      bit      default 1,
     CONSTRAINT pk_tipoCaja PRIMARY KEY (id)
 )
 
@@ -43,7 +44,7 @@ CREATE TABLE EMP_DISTRIBUIDOR
     descripcion varchar(150)       not null,
     created_at  datetime default null,
     updated_at  datetime default null,
-    estado      bit,
+    estado      bit      default 1,
     CONSTRAINT pk_distribuidor PRIMARY KEY (id)
 )
 
@@ -60,23 +61,23 @@ CREATE TABLE EMP_CAJAS
     id_codAllweights int,
     created_at       datetime default null,
     updated_at       datetime default null,
-    estado           bit,
+    estado           bit      default 1,
     CONSTRAINT pk_caja PRIMARY KEY (id),
-    CONSTRAINT fk_destino_caja FOREIGN KEY (id_destino) REFERENCES EMP_DESTINO(id),
-    CONSTRAINT fk_tipo_caja FOREIGN KEY (id_tipoCaja) REFERENCES EMP_TIPO_CAJA(id),
-    CONSTRAINT fk_distrib_caja FOREIGN KEY (id_distrib) REFERENCES  EMP_DISTRIBUIDOR(id)
+    CONSTRAINT fk_destino_caja FOREIGN KEY (id_destino) REFERENCES EMP_DESTINO (id),
+    CONSTRAINT fk_tipo_caja FOREIGN KEY (id_tipoCaja) REFERENCES EMP_TIPO_CAJA (id),
+    CONSTRAINT fk_distrib_caja FOREIGN KEY (id_distrib) REFERENCES EMP_DISTRIBUIDOR (id)
 )
 
 CREATE TABLE EMP_COD_COORP
 (
-    id int identity (1,1) not null ,
-    descripcion varchar(200) not null ,
-    id_caja int not null ,
-    created_at       datetime default null,
-    updated_at       datetime default null,
-    estado           bit,
+    id          int identity (1,1) not null,
+    descripcion varchar(200)       not null,
+    id_caja     int                not null,
+    created_at  datetime default null,
+    updated_at  datetime default null,
+    estado      bit      default 1,
     CONSTRAINT pk_codCoorp PRIMARY KEY (id),
-    CONSTRAINT fk_coorp_caja FOREIGN KEY (id_caja) REFERENCES  EMP_CAJAS(id)
+    CONSTRAINT fk_coorp_caja FOREIGN KEY (id_caja) REFERENCES EMP_CAJAS (id)
 )
 
 CREATE TABLE EMP_VAPOR
@@ -85,7 +86,7 @@ CREATE TABLE EMP_VAPOR
     descripcion varchar(150)       not null,
     created_at  datetime default null,
     updated_at  datetime default null,
-    estado      bit,
+    estado      bit      default 1,
     CONSTRAINT pk_vapor PRIMARY KEY (id)
 )
 
@@ -156,7 +157,7 @@ CREATE TABLE EMP_LIQUIDACION
     usuario     int,
     created_at  datetime default null,
     updated_at  datetime default null,
-    estado      bit,
+    estado      bit      default 1,
     CONSTRAINT pk_liquidacion PRIMARY KEY (id)
 )
 
@@ -184,9 +185,9 @@ CREATE TABLE EMP_DET_LIQUIDACION
     usuario         int,
     created_at      datetime default null,
     updated_at      datetime default null,
-    estado          bit,
+    estado          bit      default 1,
     CONSTRAINT pk_detalle_liquidacion PRIMARY KEY (id),
-    CONSTRAINT fk_liquid_detalle FOREIGN KEY (id_liquid) REFERENCES EMP_LIQUIDACION(id),
-    CONSTRAINT fk_vapor_liquid FOREIGN KEY (id_vapor) references EMP_VAPOR(id),
-    CONSTRAINT fk_codCorp_detliquid FOREIGN KEY (id_codCorp) REFERENCES EMP_COD_COORP(id)
+    CONSTRAINT fk_liquid_detalle FOREIGN KEY (id_liquid) REFERENCES EMP_LIQUIDACION (id),
+    CONSTRAINT fk_vapor_liquid FOREIGN KEY (id_vapor) references EMP_VAPOR (id),
+    CONSTRAINT fk_codCorp_detliquid FOREIGN KEY (id_codCorp) REFERENCES EMP_COD_COORP (id)
 )
