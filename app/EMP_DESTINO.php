@@ -2,12 +2,12 @@
 
 namespace App;
 
+use App\Models\BaseModel;
 use Illuminate\Database\Eloquent\Model;
 
-class EMP_DESTINO extends Model
+class EMP_DESTINO extends BaseModel
 {
     protected $table = 'EMP_DESTINO';
-    protected $dateFormat = 'd-m-Y H:i:s';
 
     protected $fillable = [
         'descripcion'
