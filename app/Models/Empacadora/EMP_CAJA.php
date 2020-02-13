@@ -34,4 +34,10 @@ class EMP_CAJA extends BaseModel
         return $this->belongsTo('App\Models\Empacadora\EMP_TIPO_CAJA', 'id_tipoCaja')
             ->select('id', 'descripcion');
     }
+
+    public function cod_coorporativo()
+    {
+        return $this->hasMany('App\Models\Empacadora\EMP_COD_COORP', 'id_caja')
+            ->select('id', 'id_caja', 'descripcion');
+    }
 }

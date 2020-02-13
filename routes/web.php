@@ -26,6 +26,12 @@ Route::resource('/api/emp_distribuidor', 'Empacadora\EmpDistribuidorController')
     'create', 'edit'
 ]);
 
+//Ruta resource para cajas
 Route::resource('/api/emp_caja', 'Empacadora\EmpCajaController')->except([
+    'create', 'edit'
+]);
+
+//Ruta resource para codigos coorporativos
+Route::resource('/api/emp_cod_coorp', 'Empacadora\EmpCodCoorpController')->except([
     'create', 'edit'
 ]);

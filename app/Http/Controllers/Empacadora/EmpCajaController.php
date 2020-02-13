@@ -20,7 +20,7 @@ class EmpCajaController extends Controller
 
     public function index()
     {
-        $cajas = EMP_CAJA::all()->load(['destino', 'distribuidor', 'tipo_caja']);
+        $cajas = EMP_CAJA::all()->load(['destino', 'distribuidor', 'tipo_caja', 'cod_coorporativo']);
 
         if (!is_null($cajas) && !empty($cajas) && count($cajas) > 0) {
             $this->out = $this->respuesta_json('success', 200, 'Destinos encontrados.');
