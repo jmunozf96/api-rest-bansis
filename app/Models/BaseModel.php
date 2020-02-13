@@ -11,5 +11,4 @@ class BaseModel extends Model
         return 'Y-d-m H:i:s.v';
     }
 
-    public $timestamps = false;
 }

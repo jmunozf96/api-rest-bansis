@@ -14,6 +14,6 @@ class EMP_DESTINO extends BaseModel
     ];
 
     protected $hidden = [
-        'id'
+        'id', 'estado'
     ];
 }

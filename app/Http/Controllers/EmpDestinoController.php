@@ -63,21 +63,67 @@ class EmpDestinoController extends Controller
     }
 
 
-    public function show(EMP_DESTINO $emp_destino)
+    public function show($id)
     {
-        //
+        $destino = EMP_DESTINO::find($id);
+
+        if (is_object($destino) && !empty($destino)) {
+            $this->out = $this->respuesta_json('success', 200, 'Dato encontrado.');
+            $this->out['destino'] = $destino;
+        } else {
+            $this->out['message'] = 'No existen datos con el parametro enviado.';
+        }
+        return response()->json($this->out, $this->out['code']);
     }
 
 
-    public function update(Request $request, EMP_DESTINO $emp_destino)
+    public function update(Request $request, $id)
     {
-        //
+        $destino = EMP_DESTINO::find($id);
+
+        if (is_object($destino) && !empty($destino)) {
+
+            $json = $request->input('json');
+            $params_array = json_decode($json, true);
+
+            $validacion = Validator::make($params_array, [
+                'descripcion' => 'required',
+                'continente' => 'required|alpha'
+            ]);
+
+            if ($validacion->fails()) {
+                $this->out['message'] = "Los datos enviados no son correctos";
+                $this->out['error'] = $validacion->errors();
+            } else {
+                unset($params_array['id']);
+                unset($params_array['created_at']);
+
+                $destino->descripcion = $params_array['descripcion'];
+                $destino->continente = $params_array['continente'];
+                $destino->save();
+
+                $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
+                $this->out['destino'] = $destino;
+            }
+
+        } else {
+            $this->out['message'] = 'No existen datos con el parametro enviado.';
+        }
+        return response()->json($this->out, $this->out['code']);
     }
 
 
-    public function destroy(EMP_DESTINO $emp_destino)
+    public function destroy($id)
     {
-        //
+        $destino = EMP_DESTINO::find($id);
+
+        if (is_object($destino) && !empty($destino)) {
+            $destino->delete();
+            $this->out = $this->respuesta_json('success', 200, 'Dato eliminado correctamente.');
+        } else {
+            $this->out['message'] = 'No existen datos con el parametro enviado.';
+        }
+        return response()->json($this->out, $this->out['code']);
     }
 
     public function respuesta_json(...$datos)
