@@ -3,13 +3,14 @@
   <component name="ChangeListManager">
     <list default="true" id="318a6250-dc75-4bc7-bd8a-e9a07cb1d9c6" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/EMP_DESTINO.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_DESTINO.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/EMP_DISTRIBUIDOR.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_DISTRIBUIDOR.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/EMP_TIPO_CAJA.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_TIPO_CAJA.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/EmpDestinoController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpDestinoController.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/EmpDistribuidorController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpDistribuidorController.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/EmpTipoCajaController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpTipoCajaController.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/routes/web.php" beforeDir="false" afterPath="$PROJECT_DIR$/routes/web.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpCajaController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpCajaController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpDestinoController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpDestinoController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpDistribuidorController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpDistribuidorController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpTipoCajaController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpTipoCajaController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Models/Empacadora/EMP_CAJA.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_CAJA.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Models/Empacadora/EMP_DESTINO.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_DESTINO.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Models/Empacadora/EMP_DISTRIBUIDOR.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_DISTRIBUIDOR.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Models/Empacadora/EMP_TIPO_CAJA.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_TIPO_CAJA.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

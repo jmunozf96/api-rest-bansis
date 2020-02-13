@@ -19,7 +19,7 @@ class EmpDestinoController extends Controller
 
     public function index()
     {
-        $destinos = EMP_DESTINO::all();
+        $destinos = EMP_DESTINO::all()->load(['cajas']);
 
         if (!is_null($destinos) && !empty($destinos) && count($destinos) > 0) {
             $this->out = $this->respuesta_json('success', 200, 'Destinos encontrados.');

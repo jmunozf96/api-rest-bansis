@@ -19,7 +19,7 @@ class EmpDistribuidorController extends Controller
 
     public function index()
     {
-        $distribuidores = EMP_DISTRIBUIDOR::all();
+        $distribuidores = EMP_DISTRIBUIDOR::all()->load(['cajas']);
 
         if (!is_null($distribuidores) && !empty($distribuidores) && count($distribuidores) > 0) {
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');

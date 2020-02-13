@@ -19,7 +19,7 @@ class EmpTipoCajaController extends Controller
 
     public function index()
     {
-        $tipos_caja = EMP_TIPO_CAJA::all();
+        $tipos_caja = EMP_TIPO_CAJA::all()->load(['cajas']);
 
         if (!is_null($tipos_caja) && !empty($tipos_caja) && count($tipos_caja) > 0) {
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');

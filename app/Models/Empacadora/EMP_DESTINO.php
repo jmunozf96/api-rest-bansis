@@ -16,4 +16,12 @@ class EMP_DESTINO extends BaseModel
     protected $hidden = [
         'id', 'estado'
     ];
+
+    public function cajas()
+    {
+        return $this->hasMany('App\Models\Empacadora\EMP_CAJA', 'id_destino')
+            ->select('id', 'id_destino', 'id_distrib', 'id_tipoCaja', 'descripcion',
+                'peso_max', 'peso_min', 'peso_standard', 'id_codAllweights')
+            ->with(['distribuidor', 'tipo_caja']);
+    }
 }
