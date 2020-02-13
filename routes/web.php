@@ -20,3 +20,8 @@ Route::resource('/api/emp_destino', 'EmpDestinoController')->except([
 Route::resource('/api/emp_tipo_caja', 'EmpTipoCajaController')->except([
     'create', 'edit'
 ]);
+
+//Ruta resource para distribuidores
+Route::resource('/api/emp_distribuidor', 'EmpDistribuidorController')->except([
+    'create', 'edit'
+]);
