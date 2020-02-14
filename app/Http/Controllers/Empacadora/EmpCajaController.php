@@ -23,10 +23,10 @@ class EmpCajaController extends Controller
         $cajas = EMP_CAJA::all()->load(['destino', 'distribuidor', 'tipo_caja', 'cod_coorporativo']);
 
         if (!is_null($cajas) && !empty($cajas) && count($cajas) > 0) {
-            $this->out = $this->respuesta_json('success', 200, 'Destinos encontrados.');
+            $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
             $this->out['cajas'] = $cajas;
         } else {
-            $this->out['message'] = 'No hay destinos registrados';
+            $this->out['message'] = 'No hay datos registrados';
         }
 
         return response()->json($this->out, $this->out['code']);
@@ -139,8 +139,10 @@ class EmpCajaController extends Controller
                 }
 
             } else {
-                $this->out['message'] = "No se han recibido parametros";
+                $this->out['message'] = "No se han recibido parametros.";
             }
+        } else {
+            $this->out['message'] = "No existen datos con el parametro enviado.";
         }
         return response()->json($this->out, $this->out['code']);
     }
