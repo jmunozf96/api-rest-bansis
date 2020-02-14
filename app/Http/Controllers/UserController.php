@@ -6,6 +6,7 @@ use App\Helpers\Helper;
 use App\Helpers\JwtAuth;
 use App\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
@@ -39,7 +40,12 @@ class UserController extends Controller
                 $this->respuesta['message'] = 'Los datos enviados no son correctos';
                 $this->respuesta['error'] = $validacion->errors();
             } else {
-                $password_hash = hash('sha256', $params->contraseña);
+                //$password_hash = hash('sha256', $params->contraseña);
+                $password_hash = Hash::make($params->contraseña, [
+                    'memory' => 1024,
+                    'time' => 2,
+                    'threads' => 2,
+                ]);
 
                 $usuario = new User();
                 $usuario->nombre = $params->nombre;
@@ -81,11 +87,10 @@ class UserController extends Controller
                 $this->respuesta['message'] = 'Los parametros enviados no son correctos';
                 $this->respuesta['error'] = $validacion->errors();
             } else {
-                $password_hash = hash('sha256', trim($params->password));
-                $signup = $jwtAuth->signup($params->user, $password_hash);
+                $signup = $jwtAuth->signup($params->user, $params->password);
 
                 if (!empty($params->getToken)) {
-                    $signup = $jwtAuth->signup($params->user, $password_hash, true);
+                    $signup = $jwtAuth->signup($params->user, $params->password, true);
                 }
             }
         } else {

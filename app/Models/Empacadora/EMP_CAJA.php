@@ -10,7 +10,7 @@ class EMP_CAJA extends BaseModel
     protected $table = 'EMP_CAJAS';
 
     protected $fillable = [
-        'descripcion', 'peso_max', 'peso_min', 'peso_standard'
+        'descripcion', 'peso_max', 'peso_min', 'peso_standard', 'id_destino', 'id_distrib', 'id_tipoCaja', 'id_codAllweights'
     ];
 
     protected $hidden = [

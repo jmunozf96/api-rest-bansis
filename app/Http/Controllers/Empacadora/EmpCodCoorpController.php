@@ -97,7 +97,7 @@ class EmpCodCoorpController extends Controller
                         'id_caja' => ['required', 'exists:EMP_CAJAS,id'],
                     ],
                     [
-                        'descripcion.unique' => 'El codigo con el mismo tipo de caja ya se encuentra registrado o no se han efectuado cambios en el registro actual.',
+                        'descripcion.unique' => 'El codigo con el mismo tipo de caja ya se encuentra registrado o no se han detectado cambios en el registro actual.',
                         'id_caja.exists' => 'El parametro de caja no existe.'
                     ]);
 

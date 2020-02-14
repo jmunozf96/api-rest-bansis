@@ -2,8 +2,9 @@
 
 namespace App\Helpers;
 
+use App\User;
 use Firebase\JWT\JWT;
-use http\Client\Curl\User;
+use Illuminate\Support\Facades\Hash;
 
 class JwtAuth
 {
@@ -16,28 +17,29 @@ class JwtAuth
 
     public function signup($user, $password, $getToken = null)
     {
-        $user = \App\User::where([
-            'correo' => trim(str_replace(" ", "", $user)),
+        $usuario = User::where([
+            'correo' => trim(str_replace(" ", "", $user))
         ])->orWhere([
-            'nick' => trim(str_replace(" ", "", $user)),
+            'nick' => trim(str_replace(" ", "", $user))
         ])->where([
-            'contraseña' => $password,
             'estado' => true
         ])->first();
 
         $signup = false;
 
-        if (is_object($user)) {
-            $signup = true;
+        if (is_object($usuario)) {
+            if (Hash::check($password, $usuario->contraseña)) {
+                $signup = true;
+            }
         }
 
         if ($signup) {
             $token = array(
-                'sub' => $user->id,
-                'nick' => $user->nick,
-                'correo' => $user->correo,
-                'nombres' => $user->nombre,
-                'apellidos' => $user->apellido,
+                'sub' => $usuario->id,
+                'nick' => $usuario->nick,
+                'correo' => $usuario->correo,
+                'nombres' => $usuario->nombre,
+                'apellidos' => $usuario->apellido,
                 'iat' => time(),
                 'exp' => time() + (7 * 24 * 60 * 60)
             );

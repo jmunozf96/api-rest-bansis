@@ -2,11 +2,15 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="318a6250-dc75-4bc7-bd8a-e9a07cb1d9c6" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Helpers/JwtAuth.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Helpers/JwtAuth.php" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpCajaController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpCajaController.php" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpCodCoorpController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Empacadora/EmpCodCoorpController.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Models/Empacadora/EMP_COD_COORP.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_COD_COORP.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Http/Controllers/UserController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/UserController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Models/Empacadora/EMP_CAJA.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Empacadora/EMP_CAJA.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/User.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/User.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/index.php" beforeDir="false" afterPath="$PROJECT_DIR$/public/index.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/routes/web.php" beforeDir="false" afterPath="$PROJECT_DIR$/routes/web.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

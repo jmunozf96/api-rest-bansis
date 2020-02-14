@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Empacadora;
 
+use App\Helpers\JwtAuth;
 use App\Http\Controllers\Controller;
 use App\Models\Empacadora\EMP_CAJA;
 use Illuminate\Http\Request;
@@ -107,7 +108,8 @@ class EmpCajaController extends Controller
             if (!empty($params_array) && count($params_array) > 0) {
                 $validacion = Validator::make($params_array,
                     [
-                        'descripcion' => "required",
+                        'descripcion' =>
+                            "required|unique:EMP_CAJAS,descripcion,NULL,NULL,id_destino,$params->id_destino,id_tipoCaja,$params->id_tipoCaja,id_distrib,$params->id_distrib",
                         'peso_max' => 'required|between:0,99.99',
                         'peso_min' => 'required|between:0,99.99',
                         'peso_standard' => 'required|between:0,99.99',
@@ -115,6 +117,9 @@ class EmpCajaController extends Controller
                         'id_tipoCaja' => ['required', 'exists:EMP_TIPO_CAJA,id'],
                         'id_distrib' => ['required', 'exists:EMP_DISTRIBUIDOR,id'],
                         'id_codAllweights' => 'between:0,9999999'
+                    ],
+                    [
+                        'descripcion.unique' => 'La caja ya se encuentra registrada o no se han detectado cambios en el registro actual.'
                     ]);
 
                 if ($validacion->fails()) {
@@ -167,5 +172,14 @@ class EmpCajaController extends Controller
             'code' => $datos[1],
             'message' => $datos[2]
         );
+    }
+
+    private function getIdentity(Request $request)
+    {
+        $jwtauth = new JwtAuth();
+        $token = $request->header('Authorization', null);
+        $user = $jwtauth->checkToken($token, true);
+
+        return $user;
     }
 }

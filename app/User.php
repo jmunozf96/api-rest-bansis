@@ -11,6 +11,7 @@ class User extends Authenticatable
     use Notifiable;
 
     protected $table = 'SIS_Usuarios';
+    protected $dateFormat = 'Y-d-m H:i:s.v';
 
     protected $fillable = [
         'nombre', 'apellido', 'correo', 'contraseña', 'avatar'
