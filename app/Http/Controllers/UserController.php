@@ -33,7 +33,8 @@ class UserController extends Controller
                 'apellido' => 'required|regex:/^[\pL\s\-]+$/u',
                 'correo' => 'required|email|unique:SIS_Usuarios',
                 'contraseña' => 'required',
-                'descripcion' => 'required'
+                'descripcion' => 'required',
+                'idhacienda' => 'required'
             ]);
 
             if ($validacion->fails()) {
@@ -54,6 +55,7 @@ class UserController extends Controller
                 $usuario->nick = $this->generarNick($params->nombre, $params->apellido);
                 $usuario->contraseña = $password_hash;
                 $usuario->descripcion = $params->descripcion;
+                $usuario->idhacienda = $params->idhacienda;
                 $usuario->estado = true;
 
                 $usuario->save();
