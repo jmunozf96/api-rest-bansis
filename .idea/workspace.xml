@@ -3,6 +3,9 @@
   <component name="ChangeListManager">
     <list default="true" id="318a6250-dc75-4bc7-bd8a-e9a07cb1d9c6" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Models/Bodega/BOD_EGRESO.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Bodega/BOD_EGRESO.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Models/Hacienda/HAC_EMPLEADO.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Hacienda/HAC_EMPLEADO.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/routes/web.php" beforeDir="false" afterPath="$PROJECT_DIR$/routes/web.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -214,7 +217,7 @@
       <workItem from="1581477528569" duration="1639000" />
       <workItem from="1581546759696" duration="152000" />
       <workItem from="1581947743588" duration="344000" />
-      <workItem from="1582049035770" duration="5313000" />
+      <workItem from="1582049035770" duration="8353000" />
     </task>
     <servers />
   </component>
@@ -234,11 +237,11 @@
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="445" y="0" key="#com.intellij.refactoring.rename.AutomaticRenamingDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1582054654540" />
-    <state x="580" y="171" key="#com.jetbrains.php.actions.copyPaste.importReferences.PhpImportReferencesDialog" timestamp="1581686169036">
+    <state x="580" y="171" key="#com.jetbrains.php.actions.copyPaste.importReferences.PhpImportReferencesDialog" timestamp="1582058697275">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="413" y="120" key="#com.jetbrains.php.actions.copyPaste.importReferences.PhpImportReferencesDialog/0.0.1366.728@0.0.1366.728" timestamp="1581478177669" />
-    <state x="580" y="171" key="#com.jetbrains.php.actions.copyPaste.importReferences.PhpImportReferencesDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1581686169036" />
+    <state x="580" y="171" key="#com.jetbrains.php.actions.copyPaste.importReferences.PhpImportReferencesDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1582058697275" />
     <state x="308" y="0" key="CommitChangelistDialog2" timestamp="1581478622277">
       <screen x="0" y="0" width="1366" height="728" />
     </state>
