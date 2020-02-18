@@ -191,3 +191,195 @@ CREATE TABLE EMP_DET_LIQUIDACION
     CONSTRAINT fk_vapor_liquid FOREIGN KEY (id_vapor) references EMP_VAPOR (id),
     CONSTRAINT fk_codCorp_detliquid FOREIGN KEY (id_codCorp) REFERENCES EMP_COD_COORP (id)
 )
+
+CREATE TABLE BOD_BODEGAS
+(
+    id          int identity (1,1) not null,
+    idhacienda  int                not null,
+    descripcion varchar(150)       not null,
+    created_at  datetime default null,
+    updated_at  datetime default null,
+    estado      bit      default 1,
+    CONSTRAINT PK_BODEGA PRIMARY KEY (id),
+)
+
+CREATE TABLE BOD_GRUPOS
+(
+    id          int identity (1,1) not null,
+    descripcion varchar(150)       not null,
+    created_at  datetime default null,
+    updated_at  datetime default null,
+    estado      bit      default 1,
+    CONSTRAINT PK_GRUPO PRIMARY KEY (id),
+)
+
+CREATE TABLE BOD_MATERIALES
+(
+    id          int identity (1,1) not null,
+    idbodega    int                not null,
+    idgrupo     int                not null,
+    descripcion varchar(150)       not null,
+    created_at  datetime default null,
+    updated_at  datetime default null,
+    estado      bit      default 1,
+    CONSTRAINT PK_MATERIAL PRIMARY KEY (id),
+    CONSTRAINT FK_MAT_BOD FOREIGN KEY (idbodega) REFERENCES BOD_BODEGAS (id),
+    CONSTRAINT FK_MAT_GRP FOREIGN KEY (idgrupo) REFERENCES BOD_GRUPOS (id)
+)
+
+CREATE TABLE HAC_EMPLEADOS
+(
+    id         int identity (1,1) not null,
+    codigo     int                not null,
+    idhacienda int                not null,
+    nombre1    varchar(150)       not null,
+    nombre2    varchar(150),
+    apellido1  varchar(150)       not null,
+    apellido2  varchar(150),
+    nombres    varchar(250)       not null,
+    image      varchar(300),
+    created_at datetime default null,
+    updated_at datetime default null,
+    estado     bit      default 1,
+    CONSTRAINT PK_EMPLEADO PRIMARY KEY (id)
+)
+
+CREATE TABLE BOD_EGRESOS
+(
+    id         int identity (1,1)         not null,
+    idcalendar int                        not null,
+    idempleado int                        not null,
+    fecha      date     default getdate() not null,
+    created_at datetime default null,
+    updated_at datetime default null,
+    estado     bit      default 1,
+    CONSTRAINT PK_EGRESO PRIMARY KEY (id),
+    CONSTRAINT FK_EGR_EMP FOREIGN KEY (idempleado) REFERENCES HAC_EMPLEADOS (id)
+)
+
+CREATE TABLE BOD_DET_EGRESOS
+(
+    id           int identity (1,1)         not null,
+    idegreso     int                        not null,
+    idmaterial   int                        not null,
+    fecha_salida date     default getdate() not null,
+    cantidad     int                        not null,
+    created_at   datetime default null,
+    updated_at   datetime default null,
+    estado       bit      default 1,
+    CHECK (cantidad > 0),
+    CONSTRAINT PK_DET_EGRESO PRIMARY KEY (id),
+    CONSTRAINT FK_EGRESO FOREIGN KEY (idegreso) REFERENCES BOD_EGRESOS (id),
+    CONSTRAINT FK_DET_EGR_MATERIAL FOREIGN KEY (idmaterial) REFERENCES BOD_MATERIALES (id)
+)
+
+CREATE TABLE HAC_ENF_REELEVOS
+(
+    id         int identity (1,1) not null,
+    idempleado int                not null,
+    created_at datetime default null,
+    updated_at datetime default null,
+    estado     bit      default 1,
+    CONSTRAINT PK_REELEVO PRIMARY KEY (id),
+    CONSTRAINT FK_RLV_EMP FOREIGN KEY (idempleado) REFERENCES HAC_EMPLEADOS (id)
+)
+
+CREATE TABLE HAC_LABORES
+(
+    id          int identity (1,1) not null,
+    descripcion varchar(150)       not null,
+    created_at  datetime default null,
+    updated_at  datetime default null,
+    estado      bit      default 1,
+    CONSTRAINT PK_LABOR PRIMARY KEY (id)
+)
+
+CREATE TABLE HAC_EMP_LAB
+(
+    id         int identity (1,1) not null,
+    idempleado int                not null,
+    idlabor    int                not null,
+    created_at datetime default null,
+    updated_at datetime default null,
+    estado     bit      default 1,
+    CONSTRAINT PK_EMP_LABOR PRIMARY KEY (id),
+    CONSTRAINT FK_EMPLEADO FOREIGN KEY (idempleado) REFERENCES HAC_EMPLEADOS (id),
+    CONSTRAINT FK_LABOR FOREIGN KEY (idlabor) REFERENCES HAC_LABORES (id)
+)
+
+CREATE TABLE HAC_LOTES
+(
+    id          int identity (1,1) not null,
+    idhacienda  int                not null,
+    descripcion varchar(150)       not null,
+    created_at  datetime default null,
+    updated_at  datetime default null,
+    estado      bit      default 1,
+    CONSTRAINT PK_LOTE PRIMARY KEY (id)
+)
+
+CREATE TABLE HAC_SECCIONES
+(
+    id             int identity (1,1)         not null,
+    fecha_apertura date     default getdate() not null,
+    idemplab       int                        not null,
+    idlote         int                        not null,
+    has            float,
+    created_at     datetime default null,
+    updated_at     datetime default null,
+    estado         bit      default 1,
+    CONSTRAINT PK_SECCION PRIMARY KEY (id),
+    CONSTRAINT FK_SEC_EMPLAB FOREIGN KEY (idemplab) REFERENCES HAC_EMP_LAB (id),
+    CONSTRAINT FK_SE_LOTE FOREIGN KEY (idlote) REFERENCES HAC_LOTES (id)
+)
+
+CREATE TABLE HAC_ENFUNDES
+(
+    id         int identity (1,1)         not null,
+    idclaendar int                        not null,
+    idhacienda int                        not null,
+    fecha      date     default getdate() not null,
+    cinta_pre  int                        not null,
+    cinta_fut  int                        not null,
+    presente   bit      default 1         not null,
+    futuro     bit      default 0,
+    cerrado    bit      default 0,
+    created_at datetime default null,
+    updated_at datetime default null,
+    estado     bit      default 1,
+    CONSTRAINT PK_ENFUNDE PRIMARY KEY (id)
+)
+
+CREATE TABLE HAC_DET_ENFUNDES
+(
+    id         int identity (1,1) not null,
+    idenfunde  int                not null,
+    idseccion  int                not null,
+    cant_pre   int,
+    cant_fut   int,
+    cant_desb  int,
+    created_at datetime default null,
+    updated_at datetime default null,
+    estado     bit      default 1,
+    CONSTRAINT PK_DET_ENFUNDE PRIMARY KEY (id),
+    CONSTRAINT FK_ENFUNDE FOREIGN KEY (idenfunde) REFERENCES HAC_ENFUNDES (id),
+    CONSTRAINT FK_ENF_SECCION FOREIGN KEY (idseccion) REFERENCES HAC_SECCIONES (id)
+)
+
+CREATE TABLE HAC_INV_SEC_ENFUNDE
+(
+    id         int identity (1,1) not null,
+    idcalendar int                not null,
+    idseccion  int                not null,
+    idmaterial int                not null,
+    sld_ini    int,
+    tot_egre   int,
+    tot_enf    int,
+    sld_fin    int,
+    created_at datetime default null,
+    updated_at datetime default null,
+    estado     bit      default 1,
+    CONSTRAINT PK_INV_SECCION PRIMARY KEY (id),
+    CONSTRAINT FK_SECCION FOREIGN KEY (idseccion) REFERENCES HAC_SECCIONES (id),
+    CONSTRAINT FK_MATERIAL FOREIGN KEY (idmaterial) REFERENCES BOD_MATERIALES (ID)
+)
