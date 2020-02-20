@@ -5,11 +5,6 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/Http/Controllers/Bodega/BodBodegaController.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Http/Controllers/Bodega/BodBodegaController.php" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/Models/Bodega/BOD_BODEGA.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Bodega/BOD_BODEGA.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Models/Bodega/BOD_DET_EGRESO.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Bodega/BOD_DET_EGRESO.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Models/Bodega/BOD_EGRESO.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Bodega/BOD_EGRESO.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Models/Bodega/BOD_MATERIAL.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Bodega/BOD_MATERIAL.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/Models/Hacienda/HAC_EMPLEADO.php" beforeDir="false" afterPath="$PROJECT_DIR$/app/Models/Hacienda/HAC_EMPLEADO.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/routes/web.php" beforeDir="false" afterPath="$PROJECT_DIR$/routes/web.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -214,7 +209,7 @@
       <workItem from="1582049035770" duration="11667000" />
       <workItem from="1582113640142" duration="19000" />
       <workItem from="1582143562970" duration="3266000" />
-      <workItem from="1582215042181" duration="603000" />
+      <workItem from="1582215042181" duration="5646000" />
     </task>
     <servers />
   </component>

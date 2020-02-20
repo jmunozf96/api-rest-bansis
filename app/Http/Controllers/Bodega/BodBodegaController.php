@@ -18,7 +18,7 @@ class BodBodegaController extends Controller
 
     public function index()
     {
-        $bodegas = BOD_BODEGA::all()->load(['materiales']);
+        $bodegas = BOD_BODEGA::paginate(1);
 
         if (!is_null($bodegas) && !empty($bodegas) && count($bodegas) > 0) {
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');

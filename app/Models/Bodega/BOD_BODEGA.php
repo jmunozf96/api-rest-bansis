@@ -9,9 +9,7 @@ class BOD_BODEGA extends BaseModel
 {
     protected $table = 'BOD_BODEGAS';
 
-    protected $hidden = [
-        ''
-    ];
+
 
     public function materiales()
     {
