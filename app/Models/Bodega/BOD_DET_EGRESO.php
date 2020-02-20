@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BOD_DET_EGRESO extends Model
 {
-    protected $table = 'BOD_DET_EGRESO';
+    protected $table = 'BOD_DET_EGRESOS';
 
     protected $hidden = [
         'id'

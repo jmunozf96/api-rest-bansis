@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BOD_EGRESO extends BaseModel
 {
-    protected $table = 'BOD_EGRESO';
+    protected $table = 'BOD_EGRESOS';
 
     protected $hidden = [
         'id'

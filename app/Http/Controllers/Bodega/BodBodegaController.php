@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 
 class BodBodegaController extends Controller
 {
+    private $out;
+
     public function __construct()
     {
         $this->middleware('api.auth', ['except' => ['index', 'show']]);

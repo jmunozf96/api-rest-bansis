@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class BOD_MATERIAL extends BaseModel
 {
 
-    protected $table = 'BOD_MATERIAL';
+    protected $table = 'BOD_MATERIALES';
 
     protected $hidden = [
         'id'

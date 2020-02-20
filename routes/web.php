@@ -37,7 +37,7 @@ Route::resource('/api/emp_cod_coorp', 'Empacadora\EmpCodCoorpController')->excep
 
 
 //----------------------------------------------------------------------------------------------------------------------
-//Ruta resource para codigos coorporativos
+//Ruta resource para bodegas
 Route::resource('/api/bod_bodega', 'Bodega\BodBodegaController')->except([
     'create', 'edit'
 ]);

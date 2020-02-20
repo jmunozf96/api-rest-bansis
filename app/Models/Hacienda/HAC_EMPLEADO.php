@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class HAC_EMPLEADO extends Model
 {
-    protected $table = 'HAC_EMPLEADO';
+    protected $table = 'HAC_EMPLEADOS';
 
     protected $fillable = [
         'id'
