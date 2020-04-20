@@ -48,10 +48,17 @@ class JwtAuth
             $jwt = JWT::encode($token, $this->key, 'HS256');
             $decode = JWT::decode($jwt, $this->key, ['HS256']);
 
+            $data = array(
+                'status' => 'success',
+                'code' => 200,
+                'token' => false
+            );
+
             if (is_null($getToken)) {
-                $data = $jwt;
+                $data['token'] = true;
+                $data['credential'] = $jwt;
             } else {
-                $data = $decode;
+                $data['credential'] = $decode;
             }
         } else {
             $data = array(

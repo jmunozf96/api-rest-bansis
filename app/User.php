@@ -10,8 +10,7 @@ class User extends Authenticatable
 {
     use Notifiable;
 
-    protected $table = 'SIS_Usuarios';
-    protected $dateFormat = 'Y-d-m H:i:s.v';
+    protected $table = 'SIS_USUARIOS';
 
     protected $fillable = [
         'nombre', 'apellido', 'correo', 'contraseña', 'avatar'
@@ -21,4 +20,7 @@ class User extends Authenticatable
         'id', 'password', 'remember_token',
     ];
 
+    public function getDateFormat() {
+        return 'Y-m-d H:i:s.v';
+    }
 }

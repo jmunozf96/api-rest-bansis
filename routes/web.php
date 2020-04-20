@@ -7,7 +7,7 @@ Route::get('/', function () {
 });
 
 //Rutas para acceso y configuracion de usuarios
-Route::post('/api/bansis/user/create', 'UserController@create')->middleware('api.auth');
+Route::post('/api/bansis/user/create', 'UserController@create');
 Route::post('/api/bansis/login', 'UserController@login');
 
 //Ruta resource para destinos de empacadora
@@ -41,3 +41,21 @@ Route::resource('/api/emp_cod_coorp', 'Empacadora\EmpCodCoorpController')->excep
 Route::resource('/api/bod_bodega', 'Bodega\BodBodegaController')->except([
     'create', 'edit'
 ]);
+
+//Ruta resource para haciendas
+Route::resource('/api/bansis-app/index.php/haciendas', 'Hacienda\HaciendaController')->except([
+    'create', 'edit'
+]);
+Route::get('/api/bansis-app/index.php/haciendas-select', 'Hacienda\HaciendaController@customSelect');
+
+//Ruta resource para labores
+Route::resource('/api/bansis-app/index.php/labores', 'Hacienda\LaborController')->except([
+    'create', 'edit'
+]);
+Route::get('/api/bansis-app/index.php/labores-select', 'Hacienda\LaborController@customSelect');
+
+//Ruta resource para empleados
+Route::resource('/api/bansis-app/index.php/empleados', 'Hacienda\EmpleadoController')->except([
+    'create', 'edit'
+]);
+

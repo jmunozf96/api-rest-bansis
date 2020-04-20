@@ -33,8 +33,7 @@ class UserController extends Controller
                 'apellido' => 'required|regex:/^[\pL\s\-]+$/u',
                 'correo' => 'required|email|unique:SIS_Usuarios',
                 'contraseña' => 'required',
-                'descripcion' => 'required',
-                'idhacienda' => 'required'
+                'descripcion' => 'required'
             ]);
 
             if ($validacion->fails()) {
@@ -55,7 +54,7 @@ class UserController extends Controller
                 $usuario->nick = $this->generarNick($params->nombre, $params->apellido);
                 $usuario->contraseña = $password_hash;
                 $usuario->descripcion = $params->descripcion;
-                $usuario->idhacienda = $params->idhacienda;
+                //$usuario->idhacienda = $params->idhacienda;
                 $usuario->estado = true;
 
                 $usuario->save();
@@ -94,12 +93,15 @@ class UserController extends Controller
                 if (!empty($params->getToken)) {
                     $signup = $jwtAuth->signup($params->user, $params->password, true);
                 }
+
+                return response()->json($signup, 200);
             }
+
         } else {
             $this->respuesta['message'] = "No se han recibido datos";
         }
 
-        return response()->json($signup, 200);
+        return response()->json($this->respuesta, 200);
     }
 
     protected function generarNick($nombres, $apellidos)
