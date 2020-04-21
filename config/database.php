@@ -91,6 +91,18 @@ return [
             'prefix_indexes' => true,
         ],
 
+        'PRIMO' => [
+            'driver' => 'sqlsrv',
+            'url' => env('DATABASE_URL'),
+            'host' => env('PRIMO_HOST', 'localhost'),
+            'database' => env('PRIMO_DATABASE', 'forge'),
+            'username' => env('PRIMO_USERNAME', 'forge'),
+            'password' => env('PRIMO_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+        ],
+
     ],
 
     /*
@@ -123,7 +135,7 @@ return [
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_database_'),
+            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_') . '_database_'),
         ],
 
         'default' => [

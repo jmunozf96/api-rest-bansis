@@ -43,19 +43,21 @@ Route::resource('/api/bod_bodega', 'Bodega\BodBodegaController')->except([
 ]);
 
 //Ruta resource para haciendas
-Route::resource('/api/bansis-app/index.php/haciendas', 'Hacienda\HaciendaController')->except([
-    'create', 'edit'
-]);
+Route::apiResource('/api/bansis-app/index.php/haciendas', 'Hacienda\HaciendaController');
 Route::get('/api/bansis-app/index.php/haciendas-select', 'Hacienda\HaciendaController@customSelect');
-
 //Ruta resource para labores
-Route::resource('/api/bansis-app/index.php/labores', 'Hacienda\LaborController')->except([
-    'create', 'edit'
-]);
+Route::apiResource('/api/bansis-app/index.php/labores', 'Hacienda\LaborController');
 Route::get('/api/bansis-app/index.php/labores-select', 'Hacienda\LaborController@customSelect');
-
 //Ruta resource para empleados
-Route::resource('/api/bansis-app/index.php/empleados', 'Hacienda\EmpleadoController')->except([
-    'create', 'edit'
-]);
+Route::apiResource('/api/bansis-app/index.php/empleados', 'Hacienda\EmpleadoController');
 
+
+//Api Bodega
+Route::apiResource('/api/bansis-app/index.php/bodegas', 'Bodega\BodegaController');
+Route::apiResource('/api/bansis-app/index.php/bodega-grupos', 'Bodega\GrupoController');
+
+//Api xass
+Route::get('/api/bansis-app/XassInventario.php/productos', 'XassInventario\Primo\ProductoController@getProductos');
+Route::get('/api/bansis-app/XassInventario.php/grupo/padre', 'XassInventario\Primo\GrupoController@getGruposPadre');
+Route::get('/api/bansis-app/XassInventario.php/grupo/hijo/{idpadre}', 'XassInventario\Primo\GrupoController@getGruposHijos');
+Route::get('/api/bansis-app/XassInventario.php/bodegas', 'XassInventario\Primo\BodegaController@getBodegas');
