@@ -55,10 +55,16 @@ Route::apiResource('/api/bansis-app/index.php/empleados', 'Hacienda\EmpleadoCont
 
 //Api Bodega
 Route::apiResource('/api/bansis-app/index.php/bodegas', 'Bodega\BodegaController');
+Route::get('/api/bansis-app/custom.php/bodegas/option', 'Bodega\BodegaController@getOptions');
 Route::apiResource('/api/bansis-app/index.php/bodega-grupos', 'Bodega\GrupoController');
+Route::get('/api/bansis-app/custom.php/bodegas/grupos/option', 'Bodega\GrupoController@getOptions');
 
 //Api xass
-Route::get('/api/bansis-app/XassInventario.php/productos', 'XassInventario\Primo\ProductoController@getProductos');
-Route::get('/api/bansis-app/XassInventario.php/grupo/padre', 'XassInventario\Primo\GrupoController@getGruposPadre');
-Route::get('/api/bansis-app/XassInventario.php/grupo/hijo/{idpadre}', 'XassInventario\Primo\GrupoController@getGruposHijos');
-Route::get('/api/bansis-app/XassInventario.php/bodegas', 'XassInventario\Primo\BodegaController@getBodegas');
+Route::get('/api/bansis-app/XassInventario.php/primo/productos', 'XassInventario\Primo\ProductoController@getProductos');
+Route::get('/api/bansis-app/XassInventario.php/primo/grupo/padre', 'XassInventario\Primo\GrupoController@getGruposPadre');
+Route::get('/api/bansis-app/XassInventario.php/primo/grupo/hijo/{idpadre}', 'XassInventario\Primo\GrupoController@getGruposHijos');
+Route::get('/api/bansis-app/XassInventario.php/primo/bodegas', 'XassInventario\Primo\BodegaController@getBodegas');
+
+//Api Material
+Route::apiResource('/api/bansis-app/index.php/materiales', 'Bodega\MaterialController');
+Route::put('api/bansis-app/custom.php/materiales/updateStock/{codigo}', 'Bodega\MaterialController@updateStockMaterial');
