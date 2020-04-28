@@ -14,7 +14,7 @@ class HaciendaController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'customSelect']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'customSelect', 'getOptions']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -32,6 +32,12 @@ class HaciendaController extends Controller
         return response()->json($this->out, $this->out['code']);
     }
 
+    public function getOptions()
+    {
+        $bodegas = Hacienda::select('id', 'detalle as descripcion')->get();
+        return response()->json($bodegas, 200);
+    }
+
     public function customSelect()
     {
         $haciendas = Hacienda::all();
@@ -44,6 +50,18 @@ class HaciendaController extends Controller
         }
 
         return response()->json($this->out, $this->out['code']);
+    }
+
+    public function getBodegas()
+    {
+        try {
+            $bodegas = Hacienda::select('id', 'detalle as descripcion')->get();
+            $this->out['dataArray'] = $bodegas;
+        } catch (\Exception $exception) {
+            $this->out['message'] = $exception->getMessage();
+        }
+
+        return response()->json($this->out, 200);
     }
 
     public function store(Request $request)

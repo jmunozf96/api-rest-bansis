@@ -37,7 +37,7 @@ class BodegaController extends Controller
 
     public function getOptions()
     {
-        $bodegas = Bodega::select('id', 'nombre as descripcion')->get();
+        $bodegas = Bodega::select('id', 'nombre as descripcion', 'idhacienda')->with('hacienda')->get();
         return response()->json($bodegas, 200);
     }
 

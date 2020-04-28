@@ -45,6 +45,7 @@ Route::resource('/api/bod_bodega', 'Bodega\BodBodegaController')->except([
 //Ruta resource para haciendas
 Route::apiResource('/api/bansis-app/index.php/haciendas', 'Hacienda\HaciendaController');
 Route::get('/api/bansis-app/index.php/haciendas-select', 'Hacienda\HaciendaController@customSelect');
+Route::get('/api/bansis-app/custom.php/haciendas/option', 'Hacienda\HaciendaController@getOptions');
 
 //Ruta resource para labores
 Route::apiResource('/api/bansis-app/index.php/labores', 'Hacienda\LaborController');
@@ -64,6 +65,11 @@ Route::get('/api/bansis-app/XassInventario.php/primo/productos', 'XassInventario
 Route::get('/api/bansis-app/XassInventario.php/primo/grupo/padre', 'XassInventario\Primo\GrupoController@getGruposPadre');
 Route::get('/api/bansis-app/XassInventario.php/primo/grupo/hijo/{idpadre}', 'XassInventario\Primo\GrupoController@getGruposHijos');
 Route::get('/api/bansis-app/XassInventario.php/primo/bodegas', 'XassInventario\Primo\BodegaController@getBodegas');
+
+Route::get('/api/bansis-app/XassInventario.php/sofca/productos', 'XassInventario\Sofca\ProductoController@getProductos');
+Route::get('/api/bansis-app/XassInventario.php/sofca/grupo/padre', 'XassInventario\Sofca\GrupoController@getGruposPadre');
+Route::get('/api/bansis-app/XassInventario.php/sofca/grupo/hijo/{idpadre}', 'XassInventario\Sofca\GrupoController@getGruposHijos');
+Route::get('/api/bansis-app/XassInventario.php/sofca/bodegas', 'XassInventario\Sofca\BodegaController@getBodegas');
 
 //Api Material
 Route::apiResource('/api/bansis-app/index.php/materiales', 'Bodega\MaterialController');

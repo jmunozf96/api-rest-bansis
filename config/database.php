@@ -103,6 +103,18 @@ return [
             'prefix_indexes' => true,
         ],
 
+        'SOFCA' => [
+            'driver' => 'sqlsrv',
+            'url' => env('DATABASE_URL'),
+            'host' => env('SOFCA_HOST', 'localhost'),
+            'database' => env('SOFCA_DATABASE', 'forge'),
+            'username' => env('SOFCA_USERNAME', 'forge'),
+            'password' => env('SOFCA_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+        ],
+
     ],
 
     /*
