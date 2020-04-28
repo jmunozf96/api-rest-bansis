@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Bodega;
 
 use App\Http\Controllers\Controller;
 use App\Models\Bodega\Bodega;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -66,6 +67,8 @@ class BodegaController extends Controller
                     $bodega->idhacienda = $params_array['idhacienda'];
                     $bodega->nombre = strtoupper($params_array['nombre']);
                     $bodega->descripcion = strtoupper($params_array['descripcion']);
+                    $bodega->created_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $bodega->updated_at = Carbon::now()->format("d-m-Y H:i:s");
                     $bodega->save();
 
                     $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
@@ -127,6 +130,7 @@ class BodegaController extends Controller
                         $bodega->idhacienda = $params_array['idhacienda'];
                         $bodega->nombre = strtoupper($params_array['nombre']);
                         $bodega->descripcion = strtoupper($params_array['descripcion']);
+                        $bodega->updated_at = Carbon::now()->format("d-m-Y H:i:s");
                         $bodega->save();
 
                         $this->out = $this->respuesta_json('success', 200, 'Datos actualizados correctamente');

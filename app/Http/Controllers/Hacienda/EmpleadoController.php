@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Hacienda;
 
 use App\Http\Controllers\Controller;
 use App\Models\Hacienda\Empleado;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -65,6 +66,8 @@ class EmpleadoController extends Controller
                 $empleado->apellido2 = strtoupper($params_array['apellido2']);
                 $empleado->nombres = strtoupper($params_array['apellido1'] . ' ' . $params_array['apellido2'] . ' ' . $params_array['nombre1'] . ' ' . $params_array['nombre2']);
                 $empleado->idlabor = $params_array['idlabor'];
+                $empleado->created_at = Carbon::now()->format("d-m-Y H:i:s");
+                $empleado->updated_at = Carbon::now()->format("d-m-Y H:i:s");
                 $empleado->save();
 
                 $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
@@ -132,6 +135,7 @@ class EmpleadoController extends Controller
                     $empleado->apellido2 = strtoupper($params_array['apellido2']);
                     $empleado->nombres = strtoupper($params_array['apellido1'] . ' ' . $params_array['apellido2'] . ' ' . $params_array['nombre1'] . ' ' . $params_array['nombre2']);
                     $empleado->idlabor = $params_array['idlabor'];
+                    $empleado->updated_at = Carbon::now()->format("d-m-Y H:i:s");
                     $empleado->save();
 
                     $this->out = $this->respuesta_json('success', 200, 'Datos actualizados correctamente');

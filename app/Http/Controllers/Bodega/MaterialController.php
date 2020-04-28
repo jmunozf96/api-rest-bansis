@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Bodega;
 use App\Http\Controllers\Controller;
 use App\Models\Bodega\Material;
 use App\Models\XassInventario\Primo\Producto;
+use Carbon\Carbon;
 use http\Env\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -24,7 +25,7 @@ class MaterialController extends Controller
     {
         try {
             $materiales = Material::with('getBodega', 'getGrupo')
-                ->orderBy('updated_at', 'DESC')
+                ->orderBy('codigo', 'asc')
                 ->paginate(7);
 
             if (!is_null($materiales) && !empty($materiales)) {
@@ -120,6 +121,8 @@ class MaterialController extends Controller
                 $article->stockminimo = 10;
                 $article->stockmaximo = 0;
                 $article->fecha_registro = date('Y-m-d');
+                $article->created_at = Carbon::now()->format("d-m-Y H:i:s");
+                $article->updated_at = Carbon::now()->format("d-m-Y H:i:s");
                 return $article->save();
             }
 
@@ -133,15 +136,19 @@ class MaterialController extends Controller
         }
     }
 
-    public function updateStockMaterial($codigo)
+    public function updateStockMaterial(Request $request)
     {
         try {
+            $codigo = $request->input('cod_material');
             $material = Producto::where('codigo', $codigo)->first();
             if (!is_null($material) && !empty($material) && is_object($material)) {
                 $existe = Material::where(['codigo' => $codigo, 'estado' => true])->first();
                 if (!is_null($existe) && !empty($existe) && is_object($existe)) {
                     if (intval($existe->stock) != intval($material->stock)) {
-                        $update_material = Material::where('codigo', $codigo)->update(['stock' => $material->stock]);
+                        $update_material = Material::where('codigo', $codigo)->update([
+                            'stock' => $material->stock,
+                            'updated_at' => Carbon::now()->format("d-m-Y H:i:s")
+                        ]);
 
                         if ($update_material) {
                             $this->out = $this->respuesta_json('success', 200, "El Stock de " . trim($material->nombre) . " ha sido actualizado");

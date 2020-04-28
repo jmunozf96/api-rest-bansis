@@ -67,4 +67,4 @@ Route::get('/api/bansis-app/XassInventario.php/primo/bodegas', 'XassInventario\P
 
 //Api Material
 Route::apiResource('/api/bansis-app/index.php/materiales', 'Bodega\MaterialController');
-Route::put('api/bansis-app/custom.php/materiales/updateStock/{codigo}', 'Bodega\MaterialController@updateStockMaterial');
+Route::put('api/bansis-app/custom.php/materiales/updateStock', 'Bodega\MaterialController@updateStockMaterial');

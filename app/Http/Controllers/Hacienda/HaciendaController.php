@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Hacienda\Hacienda;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 class HaciendaController extends Controller
 {
@@ -67,6 +68,8 @@ class HaciendaController extends Controller
             } else {
                 $hacienda = new Hacienda();
                 $hacienda->detalle = strtoupper(trim($params_array['detalle']));
+                $hacienda->created_at = Carbon::now()->format("d-m-Y H:i:s");
+                $hacienda->updated_at = Carbon::now()->format("d-m-Y H:i:s");
                 $hacienda->save();
 
                 $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
@@ -117,6 +120,7 @@ class HaciendaController extends Controller
                     $this->out['error'] = $validacion->errors();
                 } else {
                     $hacienda->detalle = strtoupper(trim($params_array['detalle']));
+                    $hacienda->updated_at = Carbon::now()->format("d-m-Y H:i:s");
                     $hacienda->save();
 
                     $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
