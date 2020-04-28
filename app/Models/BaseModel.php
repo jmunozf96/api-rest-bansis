@@ -8,7 +8,8 @@ class BaseModel extends Model
 {
     public function getDateFormat()
     {
-        return 'Y-m-d H:i:s.v';
+        return 'd-m-Y H:i:s.v';
     }
 
+    public $timestamps  = false;
 }

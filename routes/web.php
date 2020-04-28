@@ -45,12 +45,13 @@ Route::resource('/api/bod_bodega', 'Bodega\BodBodegaController')->except([
 //Ruta resource para haciendas
 Route::apiResource('/api/bansis-app/index.php/haciendas', 'Hacienda\HaciendaController');
 Route::get('/api/bansis-app/index.php/haciendas-select', 'Hacienda\HaciendaController@customSelect');
+
 //Ruta resource para labores
 Route::apiResource('/api/bansis-app/index.php/labores', 'Hacienda\LaborController');
 Route::get('/api/bansis-app/index.php/labores-select', 'Hacienda\LaborController@customSelect');
+
 //Ruta resource para empleados
 Route::apiResource('/api/bansis-app/index.php/empleados', 'Hacienda\EmpleadoController');
-
 
 //Api Bodega
 Route::apiResource('/api/bansis-app/index.php/bodegas', 'Bodega\BodegaController');
