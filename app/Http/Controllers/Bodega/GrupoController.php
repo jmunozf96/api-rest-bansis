@@ -13,7 +13,7 @@ class GrupoController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'customSelect']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'customSelect', 'getOptions']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -32,6 +32,12 @@ class GrupoController extends Controller
             $this->out['message'] = $exception->getMessage();
         }
         return response()->json($this->out, $this->out['code']);
+    }
+
+    public function getOptions()
+    {
+        $grupos = Grupo::select('id', 'descripcion')->get();
+        return response()->json($grupos, 200);
     }
 
     public function store(Request $request)

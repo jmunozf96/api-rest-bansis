@@ -22,9 +22,9 @@ class ProductoController extends Controller
             $bodega = $request->get('cellar');
             $grupo = $request->get('group');
             $busqueda = $request->get('search');
-            $tamano = $request->get('size') ?? 10;
+            $tamano = $request->get('size') ?? 5;
 
-            $data = Producto::selectRaw("id_fila, RTRIM(codigo) as codigo, RTRIM(nombre + ' - STOCK: '+ convert(varchar,CAST(stock AS DECIMAL(10,2)))) as descripcion, unidad, grupo, bodegacompra, stock");
+            $data = Producto::selectRaw("id_fila, RTRIM(codigo) as codigo, nombre, RTRIM(nombre + ' - STOCK: '+ convert(varchar,CAST(stock AS DECIMAL(10,2)))) as descripcion, unidad, grupo, bodegacompra, convert(varchar,CAST(stock AS DECIMAL(10,2))) as stock");
 
 
             if (!empty($busqueda) && isset($busqueda)) {
