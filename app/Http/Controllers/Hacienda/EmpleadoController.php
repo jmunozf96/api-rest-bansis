@@ -14,7 +14,7 @@ class EmpleadoController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -30,6 +30,41 @@ class EmpleadoController extends Controller
         }
 
         return response()->json($this->out, $this->out['code']);
+    }
+
+    public function getEmpleados(Request $request)
+    {
+        try {
+            $hacienda = $request->get('hacienda');
+            $labor = $request->get('labor');
+            $busqueda = $request->get('params');
+            $tamano = $request->get('size') ?? 5;
+
+            $data = Empleado::selectRaw("id, cedula, nombre1, nombre2, apellido1, apellido2, (nombres + ' CI: ' + cedula) as descripcion, nombres");
+
+
+            if (!empty($busqueda) && isset($busqueda)) {
+                $data = $data->where('nombres', 'like', "%{$busqueda}%")->orWhere('cedula', 'like', "%{$busqueda}%");
+            }
+
+            if (!empty($hacienda) && isset($hacienda)) {
+                $data = $data->where('idhacienda', $hacienda);
+            }
+
+            if (!empty($labor) && isset($labor)) {
+                $data = $data->where('idlabor', $labor);
+            }
+
+            $data = $data->take($tamano)
+                ->where('estado', true)
+                ->get();
+
+            $this->out['dataArray'] = $data;
+        } catch (\Exception $exception) {
+            $this->out['message'] = $exception->getMessage();
+        }
+
+        return response()->json($this->out, 200);
     }
 
     public function store(Request $request)

@@ -41,6 +41,20 @@ class BodegaController extends Controller
         return response()->json($bodegas, 200);
     }
 
+    public function customSelect()
+    {
+        $bodegas = Bodega::select('id','nombre as detalle')->get();
+
+        if (!is_null($bodegas) && !empty($bodegas) && count($bodegas) > 0) {
+            $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
+            $this->out['dataArray'] = $bodegas;
+        } else {
+            $this->out['message'] = 'No hay datos registrados';
+        }
+
+        return response()->json($this->out, $this->out['code']);
+    }
+
     public function store(Request $request)
     {
         try {

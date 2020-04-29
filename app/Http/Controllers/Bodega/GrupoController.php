@@ -41,6 +41,20 @@ class GrupoController extends Controller
         return response()->json($grupos, 200);
     }
 
+    public function customSelect()
+    {
+        $grupos = Grupo::select('id', 'descripcion')->get();
+
+        if (!is_null($grupos) && !empty($grupos) && count($grupos) > 0) {
+            $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
+            $this->out['dataArray'] = $grupos;
+        } else {
+            $this->out['message'] = 'No hay datos registrados';
+        }
+
+        return response()->json($this->out, $this->out['code']);
+    }
+
     public function store(Request $request)
     {
         try {

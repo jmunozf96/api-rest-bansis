@@ -17,7 +17,7 @@ class MaterialController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'customSelect', 'getOptions']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'customSelect', 'getOptions', 'getMateriales']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -40,6 +40,46 @@ class MaterialController extends Controller
         }
 
         return \response()->json($this->out, $this->out['code']);
+    }
+
+    public function getMateriales(Request $request)
+    {
+        try {
+            $hacienda = $request->get('hacienda');
+            $grupo = $request->get('grupo');
+            $bodega = $request->get('bodega');
+            $busqueda = $request->get('params');
+            $tamano = $request->get('size') ?? 5;
+
+            $data = Material::selectRaw("id, codigo, descripcion, stock");
+
+
+            if (!empty($busqueda) && isset($busqueda)) {
+                $data = $data->where('descripcion', 'like', "%{$busqueda}%")->orWhere('codigo', 'like', "%{$busqueda}%");
+            }
+
+            if (!empty($hacienda) && isset($hacienda)) {
+                $data = $data->where('idhacienda', $hacienda);
+            }
+
+            if (!empty($grupo) && isset($grupo)) {
+                $data = $data->where('idgrupo', $grupo);
+            }
+
+            if (!empty($bodega) && isset($bodega)) {
+                $data = $data->where('idbodega', $bodega);
+            }
+
+            $data = $data->take($tamano)
+                ->where(['estado' => true])->where('stock', '>', 0)
+                ->get();
+
+            $this->out['dataArray'] = $data;
+        } catch (\Exception $exception) {
+            $this->out['message'] = $exception->getMessage();
+        }
+
+        return response()->json($this->out, 200);
     }
 
     public function store(Request $request)

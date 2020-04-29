@@ -53,11 +53,14 @@ Route::get('/api/bansis-app/index.php/labores-select', 'Hacienda\LaborController
 
 //Ruta resource para empleados
 Route::apiResource('/api/bansis-app/index.php/empleados', 'Hacienda\EmpleadoController');
+Route::get('/api/bansis-app/index.php/search/empleados', 'Hacienda\EmpleadoController@getEmpleados');
 
 //Api Bodega
 Route::apiResource('/api/bansis-app/index.php/bodegas', 'Bodega\BodegaController');
+Route::get('/api/bansis-app/index.php/bodegas-select', 'Bodega\BodegaController@customSelect');
 Route::get('/api/bansis-app/custom.php/bodegas/option', 'Bodega\BodegaController@getOptions');
 Route::apiResource('/api/bansis-app/index.php/bodega-grupos', 'Bodega\GrupoController');
+Route::get('/api/bansis-app/index.php/bodegas-grupos-select', 'Bodega\GrupoController@customSelect');
 Route::get('/api/bansis-app/custom.php/bodegas/grupos/option', 'Bodega\GrupoController@getOptions');
 
 //Api xass
@@ -74,3 +77,4 @@ Route::get('/api/bansis-app/XassInventario.php/sofca/bodegas', 'XassInventario\S
 //Api Material
 Route::apiResource('/api/bansis-app/index.php/materiales', 'Bodega\MaterialController');
 Route::put('api/bansis-app/custom.php/materiales/updateStock', 'Bodega\MaterialController@updateStockMaterial');
+Route::get('/api/bansis-app/index.php/search/materiales', 'Bodega\MaterialController@getMateriales');
