@@ -45,7 +45,6 @@ class MaterialController extends Controller
     public function getMateriales(Request $request)
     {
         try {
-            $hacienda = $request->get('hacienda');
             $grupo = $request->get('grupo');
             $bodega = $request->get('bodega');
             $busqueda = $request->get('params');
@@ -56,10 +55,6 @@ class MaterialController extends Controller
 
             if (!empty($busqueda) && isset($busqueda)) {
                 $data = $data->where('descripcion', 'like', "%{$busqueda}%")->orWhere('codigo', 'like', "%{$busqueda}%");
-            }
-
-            if (!empty($hacienda) && isset($hacienda)) {
-                $data = $data->where('idhacienda', $hacienda);
             }
 
             if (!empty($grupo) && isset($grupo)) {

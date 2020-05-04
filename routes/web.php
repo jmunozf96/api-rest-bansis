@@ -2,6 +2,12 @@
 
 use \Illuminate\Support\Facades\Route;
 
+header('Access-Control-Allow-Origin: *');
+header("Access-Control-Allow-Headers: X-API-KEY, Origin, X-Requested-With, Content-Type, Accept, Access-Control-Request-Method");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+header("Allow: GET, POST, OPTIONS, PUT, DELETE");
+
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -78,3 +84,7 @@ Route::get('/api/bansis-app/XassInventario.php/sofca/bodegas', 'XassInventario\S
 Route::apiResource('/api/bansis-app/index.php/materiales', 'Bodega\MaterialController');
 Route::put('api/bansis-app/custom.php/materiales/updateStock', 'Bodega\MaterialController@updateStockMaterial');
 Route::get('/api/bansis-app/index.php/search/materiales', 'Bodega\MaterialController@getMateriales');
+
+//Api  Egresos Bodega
+Route::apiResource('api/bansis-app/index.php/egreso-bodega', 'Bodega\EgresoBodegaController');
+Route::get('api/bansis-app/index.php/search-egreso', 'Bodega\EgresoBodegaController@getTransaccion');
