@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Bodega;
 use App\Http\Controllers\Controller;
 use App\Models\Bodega\EgresoBodega;
 use App\Models\Bodega\EgresoBodegaDetalle;
+use App\Models\Bodega\Material;
+use App\Models\Hacienda\InventarioEmpleado;
 use App\Models\Sistema\Calendario;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -48,9 +50,14 @@ class EgresoBodegaController extends Controller
                     $detalle = $params_array['detalle'];
 
                     $calendario = Calendario::where('fecha', $params_array['time'])->first();
+
+                    //Para el inventario
+                    $cabecera['idcalendario'] = $calendario->codigo;
+
                     if (is_object($calendario)) {
                         //Se registra la cabecera
                         $existe_egreso = EgresoBodega::where([
+                            'idcalendario' => $calendario->codigo,
                             'periodo' => $calendario->periodo,
                             'semana' => $calendario->semana,
                             'idempleado' => $cabecera['empleado']['id']
@@ -59,6 +66,7 @@ class EgresoBodegaController extends Controller
                             $egreso = new EgresoBodega();
                             $egreso->codigo = $this->codigoTransaccion(intval($cabecera['hacienda']));
                             $egreso->idempleado = $cabecera['empleado']['id'];
+                            $egreso->idcalendario = $calendario->codigo;
                             $egreso->periodo = $calendario->periodo;
                             $egreso->semana = $calendario->semana;
                             $egreso->created_at = Carbon::now()->format("d-m-Y H:i:s");
@@ -67,16 +75,18 @@ class EgresoBodegaController extends Controller
 
                             foreach ($detalle as $item) {
                                 $this->storeDetalleTransaccion($item, $egreso->id);
+                                $this->storeInventario($cabecera, $item);
                             }
-
-                            $this->out = $this->respuesta_json('success', 200, 'Transaccion ' . $egreso->codigo . ' registrada correctamente');
+                            $mensaje = 'Se registro correctamente la transaccion #' . $egreso->codigo;
                             $this->out['codigo_transaccion'] = $egreso->codigo;
                         } else {
                             foreach ($detalle as $item) {
                                 $this->storeDetalleTransaccion($item, $existe_egreso->id);
+                                $this->storeInventario($cabecera, $item);
                             }
-                            $this->out = $this->respuesta_json('success', 200, 'Transaccion ' . $existe_egreso->codigo . ' actualizada correctamente');
+                            $mensaje = 'Se actualizo correctamente la transaccion #' . $existe_egreso->codigo;
                         }
+                        $this->out = $this->respuesta_json('success', 200, $mensaje . ', correspondiente al empleado: ' . $cabecera['empleado']['nombres']);
 
                         DB::commit();
                         return response()->json($this->out, 200);
@@ -131,6 +141,71 @@ class EgresoBodegaController extends Controller
         }
     }
 
+    public function storeInventario($cabecera, $detalle)
+    {
+        try {
+            //Guardar el inventario
+            $egreso_inventario = new \stdClass();
+            $egreso_inventario->idcalendario = $cabecera['idcalendario'];
+            $egreso_inventario->idempleado = $cabecera['empleado']['id'];
+            $egreso_inventario->idhacienda = $cabecera['hacienda'];
+            $egreso_inventario->idmaterial = $detalle['idmaterial'];
+            $egreso_inventario->cantidad = $detalle['cantidad'];
+            $this->saveInventario($egreso_inventario);
+            return true;
+        } catch (\Exception $ex) {
+            return false;
+        }
+    }
+
+    public function saveInventario($egreso)
+    {
+        try {
+            if (is_object($egreso)) {
+                $inventario = InventarioEmpleado::where([
+                    'idcalendar' => $egreso->idcalendario,
+                    'idempleado' => $egreso->idempleado,
+                    'idmaterial' => $egreso->idmaterial
+                ])->first();
+
+                $material_stock = Material::where(['id' => $egreso->idmaterial])->first();
+
+                if (!is_object($inventario)) {
+                    $inventario = new InventarioEmpleado();
+                    $inventario->codigo = $this->codigoTransaccionInventario($egreso->idhacienda);
+                    $inventario->idcalendar = $egreso->idcalendario;
+                    $inventario->idempleado = $egreso->idempleado;
+                    $inventario->idmaterial = $egreso->idmaterial;
+                    $inventario->sld_inicial = 0;
+                    $inventario->created_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $material_stock->stock = intval($material_stock->stock) - intval($egreso->cantidad);
+                } else {
+                    $material_stock->stock = (intval($material_stock->stock) + intval($inventario->tot_egreso)) - intval($egreso->cantidad);
+                }
+
+                $inventario->tot_egreso = $egreso->cantidad;
+                $inventario->tot_devolucion = 0;
+                $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
+                $inventario->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                $inventario->save();
+                $material_stock->update();
+
+                return true;
+            }
+            return false;
+        } catch (\Exception $ex) {
+            return false;
+        }
+    }
+
+    public function codigoTransaccionInventario($hacienda = 1)
+    {
+        $transacciones = InventarioEmpleado::select('codigo')->get();
+        $path = $hacienda === 1 ? 'PRI-INV-' : 'SFC-INV-';
+        $codigo = $path . '-' . str_pad(count($transacciones) + 1, 6, "0", STR_PAD_LEFT);;
+        return $codigo;
+    }
+
     public function getTransaccion(Request $request)
     {
         try {
@@ -145,7 +220,7 @@ class EgresoBodegaController extends Controller
                         'idempleado' => $empleado
                     ])
                         ->with('egresoEmpleado')
-                        ->with(['egresoDetalle' => function($query){
+                        ->with(['egresoDetalle' => function ($query) {
                             $query->with('materialdetalle');
                         }])
                         ->first();
