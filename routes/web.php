@@ -60,6 +60,7 @@ Route::get('/api/bansis-app/index.php/labores-select', 'Hacienda\LaborController
 //Ruta resource para empleados
 Route::apiResource('/api/bansis-app/index.php/empleados', 'Hacienda\EmpleadoController');
 Route::get('/api/bansis-app/index.php/search/empleados', 'Hacienda\EmpleadoController@getEmpleados');
+Route::get('/api/bansis-app/index.php/search/empleados/{hacienda}/{empleado}/inventario', 'Hacienda\EmpleadoController@getEmpleadosInventario');
 
 //Api Bodega
 Route::apiResource('/api/bansis-app/index.php/bodegas', 'Bodega\BodegaController');

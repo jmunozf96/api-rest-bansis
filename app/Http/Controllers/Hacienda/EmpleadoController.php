@@ -14,7 +14,7 @@ class EmpleadoController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados', 'getEmpleadosInventario']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -65,6 +65,25 @@ class EmpleadoController extends Controller
         }
 
         return response()->json($this->out, 200);
+    }
+
+    public function getEmpleadosInventario($hacienda, $empleado)
+    {
+        $empleados = Empleado::select('id', 'cedula', 'idhacienda', 'nombres as descripcion')
+            ->where([
+                'idhacienda' => $hacienda,
+                'estado' => 1
+            ])
+            ->whereNotIn('id', [$empleado])
+            ->with(['inventario' => function ($query) use ($hacienda) {
+                $query->select('id', 'idempleado', 'idmaterial', 'tot_egreso');
+                $query->where(['estado' => 1]);
+                $query->with(['material' => function ($query) use ($hacienda) {
+                    $query->select('id', 'codigo', 'stock', 'descripcion');
+                }]);
+            }])
+            ->get();
+        return response()->json($empleados, 200);
     }
 
     public function store(Request $request)
