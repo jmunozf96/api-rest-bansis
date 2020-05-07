@@ -75,6 +75,7 @@ class EmpleadoController extends Controller
                 'estado' => 1
             ])
             ->whereNotIn('id', [$empleado])
+            ->has('inventario')
             ->with(['inventario' => function ($query) use ($hacienda) {
                 $query->select('id', 'idempleado', 'idmaterial', 'tot_egreso');
                 $query->where(['estado' => 1]);

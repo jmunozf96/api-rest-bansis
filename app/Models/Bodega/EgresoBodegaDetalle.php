@@ -18,5 +18,15 @@ class EgresoBodegaDetalle extends Model
         return $this->hasOne('App\Models\Bodega\Material', 'id', 'idmaterial');
     }
 
-    public $timestamps  = false;
+    public function compartido()
+    {
+        return $this->hasOne('App\Models\Bodega\EgresoBodegaDetalle', 'id', 'id_origen');
+    }
+
+    public function destino()
+    {
+        return $this->hasOne('App\Models\Bodega\EgresoBodegaDetalle', 'id_origen', 'id');
+    }
+
+    public $timestamps = false;
 }
