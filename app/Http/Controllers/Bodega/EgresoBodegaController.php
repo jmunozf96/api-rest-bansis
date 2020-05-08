@@ -299,17 +299,20 @@ class EgresoBodegaController extends Controller
             $id = $request->get('id');
             $detalle = EgresoBodegaDetalle::where('id', $id)->first();
 
+            DB::beginTransaction();
             if ($this->destroyTransferencia($detalle)) {
                 $detalle_origen = EgresoBodegaDetalle::where('id_origen', $detalle->id)->first();
                 $detalle->delete();
                 if ($this->destroyTransferencia($detalle_origen, true)) {
                     $detalle_origen->delete();
                     $this->out = $this->respuesta_json('success', 200, 'Movimiento eliminado con exito!');
+                    DB::commit();
                     return response()->json($this->out, 200);
                 }
             }
             throw new \Exception('No se pudo eliminar el movimiento');
         } catch (\Exception $ex) {
+            DB::rollBack();
             $this->out['message'] = $ex->getMessage();
             return response()->json($this->out, 500);
         }
@@ -359,11 +362,10 @@ class EgresoBodegaController extends Controller
         }
     }
 
-
     public function codigoTransaccion($hacienda = 1)
     {
         $transacciones = EgresoBodega::select('codigo')->get();
-        $path = $hacienda === 1 ? 'PRI' : 'SFC';
+        $path = $hacienda == 1 ? 'PRI' : 'SFC';
         $codigo = $path . '-' . str_pad(count($transacciones) + 1, 10, "0", STR_PAD_LEFT);;
         return $codigo;
     }
