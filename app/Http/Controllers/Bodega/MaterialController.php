@@ -154,8 +154,8 @@ class MaterialController extends Controller
                 $article->stockminimo = 10;
                 $article->stockmaximo = 0;
                 $article->fecha_registro = date('Y-m-d');
-                $article->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                $article->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                $article->created_at = Carbon::now()->format(config('constants.format_date'));
+                $article->updated_at = Carbon::now()->format(config('constants.format_date'));
                 return $article->save();
             }
 
@@ -186,7 +186,7 @@ class MaterialController extends Controller
                     if (intval($existe->stock) != intval($material->stock)) {
                         $update_material = Material::where(['codigo' => $codigo, 'idbodega' => $bodega, 'estado' => true])->update([
                             'stock' => $material->stock,
-                            'updated_at' => Carbon::now()->format("d-m-Y H:i:s")
+                            'updated_at' => Carbon::now()->format(config('constants.format_date'))
                         ]);
 
                         if ($update_material) {

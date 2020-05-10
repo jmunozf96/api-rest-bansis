@@ -81,8 +81,8 @@ class BodegaController extends Controller
                     $bodega->idhacienda = $params_array['idhacienda'];
                     $bodega->nombre = strtoupper($params_array['nombre']);
                     $bodega->descripcion = strtoupper($params_array['descripcion']);
-                    $bodega->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                    $bodega->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $bodega->created_at = Carbon::now()->format(config('constants.format_date'));
+                    $bodega->updated_at = Carbon::now()->format(config('constants.format_date'));
                     $bodega->save();
 
                     $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
@@ -144,7 +144,7 @@ class BodegaController extends Controller
                         $bodega->idhacienda = $params_array['idhacienda'];
                         $bodega->nombre = strtoupper($params_array['nombre']);
                         $bodega->descripcion = strtoupper($params_array['descripcion']);
-                        $bodega->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                        $bodega->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $bodega->save();
 
                         $this->out = $this->respuesta_json('success', 200, 'Datos actualizados correctamente');

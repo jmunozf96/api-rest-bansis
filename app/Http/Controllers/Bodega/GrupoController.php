@@ -78,8 +78,8 @@ class GrupoController extends Controller
                 } else {
                     $grupo = new Grupo();
                     $grupo->descripcion = strtoupper($params_array['descripcion']);
-                    $grupo->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                    $grupo->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $grupo->created_at = Carbon::now()->format(config('constants.format_date'));
+                    $grupo->updated_at = Carbon::now()->format(config('constants.format_date'));
                     $grupo->save();
 
                     $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
@@ -134,7 +134,7 @@ class GrupoController extends Controller
                         $this->out['error'] = $validacion->errors();
                     } else {
                         $grupo->descripcion = strtoupper($params_array['descripcion']);
-                        $grupo->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                        $grupo->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $grupo->save();
 
                         $this->out = $this->respuesta_json('success', 200, 'Datos actualizados correctamente');

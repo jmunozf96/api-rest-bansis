@@ -69,8 +69,8 @@ class LaborController extends Controller
             } else {
                 $labor = new Labor();
                 $labor->descripcion = strtoupper(trim($params_array['descripcion']));
-                $labor->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                $labor->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                $labor->created_at = Carbon::now()->format(config('constants.format_date'));
+                $labor->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $labor->save();
 
                 $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
@@ -121,7 +121,7 @@ class LaborController extends Controller
                     $this->out['error'] = $validacion->errors();
                 } else {
                     $labor->descripcion = strtoupper(trim($params_array['descripcion']));
-                    $labor->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $labor->updated_at = Carbon::now()->format(config('constants.format_date'));
                     $labor->save();
 
                     $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');

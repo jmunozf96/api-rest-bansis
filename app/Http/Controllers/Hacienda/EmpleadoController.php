@@ -22,7 +22,7 @@ class EmpleadoController extends Controller
     {
         $empleados = Empleado::with('hacienda', 'labor')->orderBy('updated_at', 'DESC')->paginate(7);
 
-        if (!is_null($empleados) && !empty($empleados) && count($empleados) > 0) {
+        if (!is_null($empleados) && !empty($empleados)) {
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
             $this->out['dataArray'] = $empleados;
         } else {
@@ -122,8 +122,8 @@ class EmpleadoController extends Controller
                 $empleado->apellido2 = strtoupper($params_array['apellido2']);
                 $empleado->nombres = strtoupper($params_array['apellido1'] . ' ' . $params_array['apellido2'] . ' ' . $params_array['nombre1'] . ' ' . $params_array['nombre2']);
                 $empleado->idlabor = $params_array['idlabor'];
-                $empleado->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                $empleado->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                $empleado->created_at = Carbon::now()->format(config('constants.format_date'));
+                $empleado->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $empleado->save();
 
                 $this->out = $this->respuesta_json('success', 200, 'Datos guardados correctamente');
@@ -199,7 +199,7 @@ class EmpleadoController extends Controller
                     $empleado->apellido2 = strtoupper($params_array['apellido2']);
                     $empleado->nombres = strtoupper($params_array['apellido1'] . ' ' . $params_array['apellido2'] . ' ' . $params_array['nombre1'] . ' ' . $params_array['nombre2']);
                     $empleado->idlabor = $params_array['idlabor'];
-                    $empleado->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $empleado->updated_at = Carbon::now()->format(config('constants.format_date'));
                     $empleado->save();
 
                     $this->out = $this->respuesta_json('success', 200, 'Datos actualizados correctamente');

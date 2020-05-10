@@ -70,8 +70,8 @@ class EgresoBodegaController extends Controller
                             $egreso->idcalendario = $calendario->codigo;
                             $egreso->periodo = $calendario->periodo;
                             $egreso->semana = $calendario->semana;
-                            $egreso->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                            $egreso->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                            $egreso->created_at = Carbon::now()->format(config('constants.format_date'));
+                            $egreso->updated_at = Carbon::now()->format(config('constants.format_date'));
                             $egreso->save();
 
                             $cabecera['id'] = $egreso->id;
@@ -126,7 +126,7 @@ class EgresoBodegaController extends Controller
 
                     if (intval($existe_detalle->cantidad) !== intval($detalle['cantidad'])) {
                         $existe_detalle->cantidad = $detalle['cantidad'];
-                        $existe_detalle->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                        $existe_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $existe_detalle->update();
                     }
                 }
@@ -140,8 +140,8 @@ class EgresoBodegaController extends Controller
                 //de movimiento y ejecutara una accion respectiva
                 $egreso_detalle->fecha_salida = $detalle['time'];
                 $egreso_detalle->cantidad = $detalle['cantidad'];
-                $egreso_detalle->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                $egreso_detalle->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                $egreso_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
+                $egreso_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $egreso_detalle->save();
             }
             return true;
@@ -188,7 +188,7 @@ class EgresoBodegaController extends Controller
                     $inventario->idempleado = $egreso->idempleado;
                     $inventario->idmaterial = $egreso->idmaterial;
                     $inventario->sld_inicial = 0;
-                    $inventario->created_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $inventario->created_at = Carbon::now()->format(config('constants.format_date'));
                     $inventario->tot_egreso = intval($egreso->cantidad);
                     $material_stock->stock = intval($material_stock->stock) - intval($egreso->cantidad);
                 } else {
@@ -203,7 +203,7 @@ class EgresoBodegaController extends Controller
 
                 $inventario->tot_devolucion = 0;
                 $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
-                $inventario->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $inventario->save();
                 $material_stock->save();
                 return true;
@@ -339,7 +339,7 @@ class EgresoBodegaController extends Controller
                     $inventario->idempleado = $emplado->id;
                     $inventario->idmaterial = $detalle->idmaterial;
                     $inventario->sld_inicial = 0;
-                    $inventario->created_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $inventario->created_at = Carbon::now()->format(config('constants.format_date'));
                     $inventario->tot_devolucion = 0;
                 }
 
@@ -349,7 +349,7 @@ class EgresoBodegaController extends Controller
                     $inventario->tot_egreso += $detalle->cantidad;
                 }
                 $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
-                $inventario->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $inventario->save();
 
                 if ($inventario->sld_final == 0) {
@@ -397,7 +397,7 @@ class EgresoBodegaController extends Controller
                     if (is_object($inventario)) {
                         $inventario->tot_egreso -= $params_array['cantidad'];
                         $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
-                        $inventario->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                        $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $inventario->save();
                     }
                     //Generamos el movimiento de transferencia (-)
@@ -412,8 +412,8 @@ class EgresoBodegaController extends Controller
                         $movimiento->movimiento = 'TRASP-SAL';
                         $movimiento->fecha_salida = $params_array['time'];
                         $movimiento->cantidad = -$params_array['cantidad'];
-                        $movimiento->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                        $movimiento->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                        $movimiento->created_at = Carbon::now()->format(config('constants.format_date'));
+                        $movimiento->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $movimiento->save();
                         //Si ya existe un movimiento con esa misma fecha editarlo
                     }
@@ -438,13 +438,13 @@ class EgresoBodegaController extends Controller
                         $inventario_traspaso->tot_egreso = $params_array['cantidad'];
                         $inventario_traspaso->tot_devolucion = 0;
                         $inventario_traspaso->sld_final = (intval($inventario_traspaso->sld_inicial) + intval($inventario_traspaso->tot_egreso)) - intval($inventario_traspaso->tot_devolucion);
-                        $inventario_traspaso->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                        $inventario_traspaso->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                        $inventario_traspaso->created_at = Carbon::now()->format(config('constants.format_date'));
+                        $inventario_traspaso->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $inventario_traspaso->save();
                     } else {
                         $existe_inventario_transferir->tot_egreso += $params_array['cantidad'];
                         $existe_inventario_transferir->sld_final = (intval($existe_inventario_transferir->sld_inicial) + intval($existe_inventario_transferir->tot_egreso)) - intval($existe_inventario_transferir->tot_devolucion);
-                        $existe_inventario_transferir->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                        $existe_inventario_transferir->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $existe_inventario_transferir->save();
                     }
                     //si la fecha ya esta registrada con ese detalle se lo edita, caso contrario va como nuevo
@@ -465,8 +465,8 @@ class EgresoBodegaController extends Controller
                         $cabecera->periodo = $calendario->periodo;
                         $cabecera->semana = $calendario->semana;
                         $cabecera->idempleado = $params_array['emp_recibe']['id'];
-                        $cabecera->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                        $cabecera->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                        $cabecera->created_at = Carbon::now()->format(config('constants.format_date'));
+                        $cabecera->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $cabecera->save();
                         $detalle->idegreso = $cabecera->id;
                     } else {
@@ -478,8 +478,8 @@ class EgresoBodegaController extends Controller
                     $detalle->fecha_salida = $params_array['time'];
                     $detalle->cantidad = $params_array['cantidad'];
                     $detalle->id_origen = $movimiento->id;
-                    $detalle->created_at = Carbon::now()->format("d-m-Y H:i:s");
-                    $detalle->updated_at = Carbon::now()->format("d-m-Y H:i:s");
+                    $detalle->created_at = Carbon::now()->format(config('constants.format_date'));
+                    $detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
                     $detalle->save();
 
                     DB::commit();
