@@ -2,6 +2,12 @@
 
 use \Illuminate\Support\Facades\Route;
 
+header('Access-Control-Allow-Origin: *');
+header("Access-Control-Allow-Headers: X-API-KEY, Origin, X-Requested-With, Content-Type, Accept, Access-Control-Request-Method");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+header("Allow: GET, POST, OPTIONS, PUT, DELETE");
+
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -54,6 +60,7 @@ Route::get('/api/bansis-app/index.php/labores-select', 'Hacienda\LaborController
 //Ruta resource para empleados
 Route::apiResource('/api/bansis-app/index.php/empleados', 'Hacienda\EmpleadoController');
 Route::get('/api/bansis-app/index.php/search/empleados', 'Hacienda\EmpleadoController@getEmpleados');
+Route::get('/api/bansis-app/index.php/search/empleados/{hacienda}/{empleado}/inventario', 'Hacienda\EmpleadoController@getEmpleadosInventario');
 
 //Api Bodega
 Route::apiResource('/api/bansis-app/index.php/bodegas', 'Bodega\BodegaController');
@@ -78,3 +85,10 @@ Route::get('/api/bansis-app/XassInventario.php/sofca/bodegas', 'XassInventario\S
 Route::apiResource('/api/bansis-app/index.php/materiales', 'Bodega\MaterialController');
 Route::put('api/bansis-app/custom.php/materiales/updateStock', 'Bodega\MaterialController@updateStockMaterial');
 Route::get('/api/bansis-app/index.php/search/materiales', 'Bodega\MaterialController@getMateriales');
+
+//Api  Egresos Bodega
+Route::apiResource('api/bansis-app/index.php/egreso-bodega', 'Bodega\EgresoBodegaController');
+Route::get('api/bansis-app/index.php/search-egreso', 'Bodega\EgresoBodegaController@getTransaccion');
+Route::get('api/bansis-app/index.php/show-transaction', 'Bodega\EgresoBodegaController@showTransferencia');
+Route::delete('api/bansis-app/index.php/delete-transaction', 'Bodega\EgresoBodegaController@preparedestroyTransferencia');
+Route::post('api/bansis-app/index.php/egreso-bodega/saldos/transfer', 'Bodega\EgresoBodegaController@saldotransfer');

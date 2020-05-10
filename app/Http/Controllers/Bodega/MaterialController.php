@@ -4,12 +4,10 @@ namespace App\Http\Controllers\Bodega;
 
 use App\Http\Controllers\Controller;
 use App\Models\Bodega\Material;
-use App\Models\XassInventario\Primo\Producto;
+use App\Models\XassInventario;
 use Carbon\Carbon;
-use http\Env\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use PhpParser\Node\Expr\Cast\Object_;
 
 class MaterialController extends Controller
 {
@@ -45,7 +43,6 @@ class MaterialController extends Controller
     public function getMateriales(Request $request)
     {
         try {
-            $hacienda = $request->get('hacienda');
             $grupo = $request->get('grupo');
             $bodega = $request->get('bodega');
             $busqueda = $request->get('params');
@@ -56,10 +53,6 @@ class MaterialController extends Controller
 
             if (!empty($busqueda) && isset($busqueda)) {
                 $data = $data->where('descripcion', 'like', "%{$busqueda}%")->orWhere('codigo', 'like', "%{$busqueda}%");
-            }
-
-            if (!empty($hacienda) && isset($hacienda)) {
-                $data = $data->where('idhacienda', $hacienda);
             }
 
             if (!empty($grupo) && isset($grupo)) {
@@ -180,12 +173,18 @@ class MaterialController extends Controller
     {
         try {
             $codigo = $request->input('cod_material');
-            $material = Producto::where('codigo', $codigo)->first();
+            $bodega = $request->input('bodega');
+            $hacienda = $request->input('hacienda');
+            if ($hacienda == 1) {
+                $material = XassInventario\Primo\Producto::where(['codigo' => $codigo])->first();
+            } else {
+                $material = XassInventario\Sofca\Producto::where(['codigo' => $codigo])->first();
+            }
             if (!is_null($material) && !empty($material) && is_object($material)) {
-                $existe = Material::where(['codigo' => $codigo, 'estado' => true])->first();
+                $existe = Material::where(['codigo' => $codigo, 'idbodega' => $bodega, 'estado' => true])->first();
                 if (!is_null($existe) && !empty($existe) && is_object($existe)) {
                     if (intval($existe->stock) != intval($material->stock)) {
-                        $update_material = Material::where('codigo', $codigo)->update([
+                        $update_material = Material::where(['codigo' => $codigo, 'idbodega' => $bodega, 'estado' => true])->update([
                             'stock' => $material->stock,
                             'updated_at' => Carbon::now()->format("d-m-Y H:i:s")
                         ]);

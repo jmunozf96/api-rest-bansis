@@ -14,7 +14,7 @@ class EmpleadoController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados', 'getEmpleadosInventario']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -67,6 +67,26 @@ class EmpleadoController extends Controller
         return response()->json($this->out, 200);
     }
 
+    public function getEmpleadosInventario($hacienda, $empleado)
+    {
+        $empleados = Empleado::select('id', 'cedula', 'idhacienda', 'nombres as descripcion')
+            ->where([
+                'idhacienda' => $hacienda,
+                'estado' => 1
+            ])
+            ->whereNotIn('id', [$empleado])
+            ->has('inventario')
+            ->with(['inventario' => function ($query) use ($hacienda) {
+                $query->select('id', 'idempleado', 'idmaterial', 'tot_egreso');
+                $query->where(['estado' => 1]);
+                $query->with(['material' => function ($query) use ($hacienda) {
+                    $query->select('id', 'codigo', 'stock', 'descripcion');
+                }]);
+            }])
+            ->get();
+        return response()->json($empleados, 200);
+    }
+
     public function store(Request $request)
     {
         $json = $request->input('json', null);
@@ -93,6 +113,7 @@ class EmpleadoController extends Controller
                 $this->out['error'] = $validacion->errors();
             } else {
                 $empleado = new Empleado();
+                $empleado->codigo = $this->codigoTransaccion($params_array['idhacienda']);
                 $empleado->cedula = $params_array['cedula'];
                 $empleado->idhacienda = $params_array['idhacienda'];
                 $empleado->nombre1 = strtoupper($params_array['nombre1']);
@@ -114,6 +135,14 @@ class EmpleadoController extends Controller
         }
 
         return response()->json($this->out, $this->out['code']);
+    }
+
+    public function codigoTransaccion($hacienda = 1)
+    {
+        $transacciones = Empleado::select('codigo')->where('idhacienda', $hacienda)->get();
+        $path = $hacienda == 1 ? 'PRI' : 'SFC';
+        $codigo = $path . '-' . str_pad(count($transacciones) + 1, 10, "0", STR_PAD_LEFT);;
+        return $codigo;
     }
 
 
