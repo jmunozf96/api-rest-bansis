@@ -40,7 +40,7 @@ class EmpleadoController extends Controller
             $busqueda = $request->get('params');
             $tamano = $request->get('size') ?? 5;
 
-            $data = Empleado::selectRaw("id, cedula, nombre1, nombre2, apellido1, apellido2, (nombres + ' CI: ' + cedula) as descripcion, nombres");
+            $data = Empleado::selectRaw("id, cedula, nombre1, nombre2, apellido1, apellido2, nombres as descripcion, nombres");
 
 
             if (!empty($busqueda) && isset($busqueda)) {

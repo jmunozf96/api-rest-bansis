@@ -40,7 +40,7 @@ class HaciendaController extends Controller
 
     public function customSelect()
     {
-        $haciendas = Hacienda::all();
+        $haciendas = Hacienda::select('id','detalle as descripcion', 'ruc')->get();
 
         if (!is_null($haciendas) && !empty($haciendas) && count($haciendas) > 0) {
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');

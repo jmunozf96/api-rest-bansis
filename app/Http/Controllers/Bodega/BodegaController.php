@@ -43,7 +43,7 @@ class BodegaController extends Controller
 
     public function customSelect()
     {
-        $bodegas = Bodega::select('id','nombre as detalle')->get();
+        $bodegas = Bodega::select('id','nombre as descripcion')->get();
 
         if (!is_null($bodegas) && !empty($bodegas) && count($bodegas) > 0) {
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');

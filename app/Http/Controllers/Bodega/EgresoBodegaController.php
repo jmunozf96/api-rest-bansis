@@ -25,6 +25,54 @@ class EgresoBodegaController extends Controller
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
+    public function index(Request $request)
+    {
+        try {
+            $hacienda = $request->get('hacienda');
+            $labor = $request->get('labor');
+            $periodo = $request->get('periodo');
+            $semana = $request->get('semana');
+            $empleado = $request->get('empleado');
+
+            $egresos = EgresoBodega::select('id', 'codigo', 'idcalendario', 'periodo', 'semana', 'idempleado', 'updated_at', 'estado');
+
+            if (!empty($periodo) && isset($periodo))
+                $egresos = $egresos->where('periodo', $periodo);
+
+            if (!empty($semana) && isset($semana))
+                $egresos = $egresos->where('semana', $semana);
+
+            if (!empty($empleado) && isset($empleado))
+                $egresos = $egresos->where('idempleado', $empleado);
+
+            $egresos = $egresos->whereHas('egresoEmpleado', function ($query) use ($hacienda, $labor) {
+                if (!empty($hacienda) && isset($hacienda))
+                    $query->where('idhacienda', $hacienda);
+
+                if (!empty($labor) && isset($labor))
+                    $query->where('idlabor', $labor);
+
+            })->with(['egresoEmpleado' => function ($query) {
+                $query->select('id', 'idhacienda', 'nombres', 'idlabor');
+                $query->with(['labor' => function ($query) {
+                    $query->select('id', 'descripcion');
+                }]);
+            }])
+                ->orderBy('updated_at', 'DESC')
+                ->paginate(7);
+
+            if (!is_null($egresos) && !empty($egresos) && count($egresos) > 0) {
+                $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
+                $this->out['dataArray'] = $egresos;
+            } else {
+                $this->out['message'] = 'Lo sentimos!, No se han encontrado datos.';
+            }
+        } catch (\Exception $exception) {
+            $this->out['message'] = $exception->getMessage();
+        }
+        return response()->json($this->out, $this->out['code']);
+    }
+
     public function store(Request $request)
     {
         try {
@@ -66,6 +114,7 @@ class EgresoBodegaController extends Controller
                         if (empty($existe_egreso) || is_null($existe_egreso) || !is_object($existe_egreso)) {
                             $egreso = new EgresoBodega();
                             $egreso->codigo = $this->codigoTransaccion(intval($cabecera['hacienda']));
+                            $egreso->fecha = $cabecera['fecha'];
                             $egreso->idempleado = $cabecera['empleado']['id'];
                             $egreso->idcalendario = $calendario->codigo;
                             $egreso->periodo = $calendario->periodo;
@@ -508,6 +557,32 @@ class EgresoBodegaController extends Controller
                 //Empleado A -> Empleado B
                 //Registrar movimiento para bajar saldo -> Registrar movimiento para aumentar el saldo
                 break;
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $egreso = EgresoBodega::select('id', 'idcalendario', 'periodo', 'semana', 'idempleado', 'fecha', 'estado')
+                ->where('id', $id)
+                ->with(['egresoEmpleado' => function ($query) {
+                    $query->select('id', 'idhacienda', 'idlabor', 'cedula', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres as descripcion', 'nombres');
+                    $query->with(['labor' => function ($query) {
+                        $query->select('id', 'descripcion');
+                    }]);
+                }])
+                ->first();
+            if (is_object($egreso) && !empty($egreso)) {
+                $this->out['code'] = 200;
+                $this->out['message'] = 'Datos encontrados con exito!';
+                $this->out['egreso'] = $egreso;
+                return response()->json($this->out, $this->out['code']);
+            }
+            throw new \Exception('No se encontraron datos para esta transaccion');
+        } catch (\Exception $ex) {
+            $this->out['code'] = 500;
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, $this->out['code']);
         }
     }
 
