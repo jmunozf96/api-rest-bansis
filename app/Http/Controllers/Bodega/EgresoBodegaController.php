@@ -98,7 +98,7 @@ class EgresoBodegaController extends Controller
                     $cabecera = $params_array['cabecera'];
                     $detalle = $params_array['detalle'];
 
-                    $calendario = Calendario::where('fecha', $params_array['time'])->first();
+                    $calendario = Calendario::where('fecha', $cabecera['fecha'])->first();
 
                     //Para el inventario
                     $cabecera['idcalendario'] = $calendario->codigo;
@@ -134,6 +134,8 @@ class EgresoBodegaController extends Controller
                             foreach ($detalle as $item) {
                                 $this->storeDetalleTransaccion($item, $cabecera);
                             }
+                            $existe_egreso->updated_at = Carbon::now()->format(config('constants.format_date'));
+                            $existe_egreso->save();
                             $mensaje = 'Se actualizo correctamente la transaccion #' . $existe_egreso->codigo;
                         }
                         $this->out = $this->respuesta_json('success', 200, $mensaje . ', correspondiente al empleado: ' . $cabecera['empleado']['nombres']);
@@ -644,7 +646,9 @@ class EgresoBodegaController extends Controller
         $cantidad_transferidas = 0;
         $egresos = EgresoBodegaDetalle::where('idegreso', $detalle_egreso->idegreso)->get();
         foreach ($egresos as $egreso) {
-            if ($egreso->movimiento == 'TRASP-SAL' && $egreso->idmaterial == $detalle_egreso->idmaterial && $egreso->id_origen == null) {
+            if ($egreso->movimiento == 'TRASP-SAL'
+                && $egreso->idmaterial == $detalle_egreso->idmaterial
+                && $egreso->id_origen == null) {
                 $cantidad_transferidas += intval($egreso->cantidad);
             }
         }
