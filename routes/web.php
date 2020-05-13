@@ -92,3 +92,6 @@ Route::get('api/bansis-app/index.php/search-egreso', 'Bodega\EgresoBodegaControl
 Route::get('api/bansis-app/index.php/show-transaction', 'Bodega\EgresoBodegaController@showTransferencia');
 Route::delete('api/bansis-app/index.php/delete-transaction', 'Bodega\EgresoBodegaController@preparedestroyTransferencia');
 Route::post('api/bansis-app/index.php/egreso-bodega/saldos/transfer', 'Bodega\EgresoBodegaController@saldotransfer');
+
+//Api Lotes Hacienda
+Route::apiResource('api/bansis-app/index.php/lote', 'Hacienda\LoteController');
