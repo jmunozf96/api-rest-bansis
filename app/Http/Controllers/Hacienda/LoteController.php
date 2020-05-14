@@ -14,7 +14,7 @@ class LoteController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'customSelect']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -34,6 +34,25 @@ class LoteController extends Controller
             $this->out['dataArray'] = $lotes;
         } else {
             $this->out['message'] = 'No hay datos registrados';
+        }
+
+        return response()->json($this->out, $this->out['code']);
+    }
+
+    public function customSelect(Request $request)
+    {
+        $hacienda = $request->get('hacienda');
+
+        if (!empty($hacienda)) {
+            $haciendas = Lote::selectRaw("id, identificacion,(descripcion + ' - has: ' + CONVERT(varchar, has)) as descripcion, has")->where('idhacienda', $hacienda)->get();
+            if (!is_null($haciendas) && !empty($haciendas) && count($haciendas) > 0) {
+                $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
+                $this->out['dataArray'] = $haciendas;
+            } else {
+                $this->out['message'] = 'No hay datos registrados';
+            }
+        } else {
+            $this->out['message'] = 'No se ha recibido parametro de hacienda';
         }
 
         return response()->json($this->out, $this->out['code']);

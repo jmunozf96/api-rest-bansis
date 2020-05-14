@@ -95,3 +95,4 @@ Route::post('api/bansis-app/index.php/egreso-bodega/saldos/transfer', 'Bodega\Eg
 
 //Api Lotes Hacienda
 Route::apiResource('api/bansis-app/index.php/lote', 'Hacienda\LoteController');
+Route::get('/api/bansis-app/index.php/lotes-select', 'Hacienda\LoteController@customSelect');
