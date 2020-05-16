@@ -9,7 +9,7 @@ class BaseModel extends Model
 {
     public function getDateFormat()
     {
-        return 'd-m-Y H:i:s.V';
+        return config('constants.format_date');
     }
 
     public $timestamps  = false;

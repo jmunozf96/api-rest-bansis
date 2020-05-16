@@ -79,7 +79,6 @@ class EgresoBodegaController extends Controller
             $json = $request->input('json');
             $params = json_decode($json);
             $params_array = json_decode($json, true);
-
             if (!empty($params) && isset($params)) {
 
                 DB::beginTransaction();
@@ -98,6 +97,9 @@ class EgresoBodegaController extends Controller
                     $cabecera = $params_array['cabecera'];
                     $detalle = $params_array['detalle'];
 
+                    $timestamp = strtotime(str_replace('/', '-', $cabecera['fecha']));
+                    $cabecera['fecha'] = date(config('constants.date'), $timestamp);
+
                     $calendario = Calendario::where('fecha', $cabecera['fecha'])->first();
 
                     //Para el inventario
@@ -111,6 +113,7 @@ class EgresoBodegaController extends Controller
                             'semana' => $calendario->semana,
                             'idempleado' => $cabecera['empleado']['id']
                         ])->first();
+
                         if (empty($existe_egreso) || is_null($existe_egreso) || !is_object($existe_egreso)) {
                             $egreso = new EgresoBodega();
                             $egreso->codigo = $this->codigoTransaccion(intval($cabecera['hacienda']));
@@ -164,6 +167,9 @@ class EgresoBodegaController extends Controller
     public function storeDetalleTransaccion($detalle, $cabecera)
     {
         try {
+
+            $timestamp = strtotime(str_replace('/', '-', $detalle['time']));
+            $detalle['time'] = date(config('constants.date'), $timestamp);
 
             $existe_detalle = EgresoBodegaDetalle::where([
                 'idegreso' => $cabecera['id'],
@@ -279,7 +285,8 @@ class EgresoBodegaController extends Controller
             $empleado = $request->get('empleado');
             $fecha = $request->get('fecha');
             if (!empty($empleado) && !empty($fecha)) {
-                $calendario = Calendario::where('fecha', $fecha)->first();
+                $timestamp = strtotime(str_replace('/', '-', $fecha));
+                $calendario = Calendario::where('fecha', date(config('constants.date'), $timestamp))->first();
                 if (is_object($calendario)) {
                     $egreso = EgresoBodega::where([
                         'periodo' => $calendario->periodo,
@@ -295,7 +302,6 @@ class EgresoBodegaController extends Controller
                     return response()->json($egreso, 200);
                 }
             }
-
             throw new \Exception('No se encontraron datos para esta fecha');
         } catch (\Exception $ex) {
             $this->out['message'] = $ex->getMessage();
