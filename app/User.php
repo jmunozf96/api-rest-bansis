@@ -21,6 +21,6 @@ class User extends Authenticatable
     ];
 
     public function getDateFormat() {
-        return 'd-m-Y H:i:s.v';
+        return config('constants.format_date');
     }
 }
