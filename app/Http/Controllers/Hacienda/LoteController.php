@@ -44,7 +44,7 @@ class LoteController extends Controller
         $hacienda = $request->get('hacienda');
 
         if (!empty($hacienda)) {
-            $haciendas = Lote::selectRaw("id, identificacion,(descripcion + ' - has: ' + CONVERT(varchar, has)) as descripcion, has")->where('idhacienda', $hacienda)->get();
+            $haciendas = Lote::selectRaw("id, identificacion,(descripcion + ' - has: ' + CONVERT(varchar, has)) as descripcion, has, latitud, longitud")->where('idhacienda', $hacienda)->get();
             if (!is_null($haciendas) && !empty($haciendas) && count($haciendas) > 0) {
                 $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
                 $this->out['dataArray'] = $haciendas;
