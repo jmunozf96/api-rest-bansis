@@ -44,10 +44,15 @@ class LoteController extends Controller
         $hacienda = $request->get('hacienda');
 
         if (!empty($hacienda)) {
-            $haciendas = Lote::selectRaw("id, identificacion,(descripcion + ' - has: ' + CONVERT(varchar, has)) as descripcion, has, latitud, longitud")->where('idhacienda', $hacienda)->get();
-            if (!is_null($haciendas) && !empty($haciendas) && count($haciendas) > 0) {
+            $lote = Lote::selectRaw("id, identificacion,(descripcion + ' - has: ' + CONVERT(varchar, has)) as descripcion, has, latitud, longitud")
+                ->where('idhacienda', $hacienda)
+                ->with(['secciones' => function ($query) {
+                    $query->select('id as idDistribucion', 'idlote', 'descripcion', 'has', 'fecha_siembra', 'variedad', 'tipo_variedad', 'tipo_suelo', 'latitud', 'longitud', 'estado');
+                }])
+                ->get();
+            if (!is_null($lote) && !empty($lote) && count($lote) > 0) {
                 $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
-                $this->out['dataArray'] = $haciendas;
+                $this->out['dataArray'] = $lote;
             } else {
                 $this->out['message'] = 'No hay datos registrados';
             }
@@ -115,7 +120,11 @@ class LoteController extends Controller
         $lote = Lote::where('id', $id)
             ->with(['hacienda' => function ($query) {
                 $query->select('id', 'detalle as descripcion', 'ruc');
-            }])->first();
+            }])
+            ->with(['secciones' => function ($query) {
+                $query->select('id as idDistribucion', 'idlote', 'descripcion', 'has', 'fecha_siembra', 'variedad', 'tipo_variedad', 'tipo_suelo', 'latitud', 'longitud', 'estado');
+            }])
+            ->first();
 
         if (!is_null($lote) && !empty($lote)) {
             $this->out = $this->respuesta_json('success', 200, 'Dato encontrado.');

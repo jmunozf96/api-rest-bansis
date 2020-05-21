@@ -13,4 +13,9 @@ class Lote extends BaseModel
     {
         return $this->hasOne('App\Models\Hacienda\Hacienda', 'id', 'idhacienda');
     }
+
+    public function secciones()
+    {
+        return $this->hasMany('App\Models\Hacienda\LoteSeccion', 'idlote', 'id');
+    }
 }
