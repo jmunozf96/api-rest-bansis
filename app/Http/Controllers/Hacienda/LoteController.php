@@ -21,7 +21,11 @@ class LoteController extends Controller
     public function index(Request $request)
     {
         $hacienda = $request->get('hacienda');
-        $lotes = Lote::selectRaw("id, idhacienda, right('0' + identificacion,2) as identificacion,has,descripcion,latitud,longitud,updated_at,estado")->with('hacienda');
+        $lotes = Lote::selectRaw("id, idhacienda, right('0' + identificacion,2) as identificacion, has, descripcion, latitud, longitud, updated_at, estado")
+            ->with('hacienda')
+            ->with(['secciones' => function ($query) {
+                $query->select('id as idDistribucion', 'idlote', 'descripcion', 'has', 'fecha_siembra', 'variedad', 'tipo_variedad', 'tipo_suelo', 'latitud', 'longitud', 'estado');
+            }]);
 
         if (!empty($hacienda) && isset($hacienda))
             $lotes = $lotes->where('idhacienda', $hacienda)->orderByRaw("right('0' + identificacion,2)", 'asc');
@@ -117,7 +121,8 @@ class LoteController extends Controller
 
     public function show($id)
     {
-        $lote = Lote::where('id', $id)
+        $lote = Lote::selectRaw("id, idhacienda, identificacion,(descripcion + ' - has: ' + CONVERT(varchar, has)) as descripcion, has, latitud, longitud, estado")
+            ->where('id', $id)
             ->with(['hacienda' => function ($query) {
                 $query->select('id', 'detalle as descripcion', 'ruc');
             }])
