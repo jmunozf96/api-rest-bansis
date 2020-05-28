@@ -99,3 +99,4 @@ Route::get('/api/bansis-app/index.php/lotes-select', 'Hacienda\LoteController@cu
 
 //Api Lotes seccion Hacienda
 Route::apiResource('api/bansis-app/index.php/lote-seccion', 'Hacienda\LoteSeccionController');
+Route::get('/api/bansis-app/index.php/lotes-seccion-select', 'Hacienda\LoteSeccionController@customSelect');

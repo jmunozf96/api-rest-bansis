@@ -26,6 +26,31 @@ class LoteSeccionController extends Controller
         //
     }
 
+    public function customSelect(Request $request)
+    {
+        $hacienda = $request->get('hacienda');
+
+        if (!empty($hacienda)) {
+            $lote = LoteSeccion::selectRaw("id, idlote, (alias + ' - has: ' + CONVERT(varchar, has)) as descripcion, alias, has, estado")
+                ->with(['lote' => function ($query) use ($hacienda) {
+                    $query->select('id', 'identificacion', 'idhacienda', 'has', 'estado');
+                    $query->where(['idhacienda' => $hacienda]);
+                }])
+                ->orderByRaw("(alias + ' - has: ' + CONVERT(varchar, has))", 'asc')
+                ->get();
+            if (!is_null($lote) && !empty($lote) && count($lote) > 0) {
+                $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
+                $this->out['dataArray'] = $lote;
+            } else {
+                $this->out['message'] = 'No hay datos registrados';
+            }
+        } else {
+            $this->out['message'] = 'No se ha recibido parametro de hacienda';
+        }
+
+        return response()->json($this->out, $this->out['code']);
+    }
+
 
     public function store(Request $request)
     {
@@ -107,7 +132,22 @@ class LoteSeccionController extends Controller
 
     public function destroy($id)
     {
-        //
+        $delete = false;
+        try {
+            $seccion = LoteSeccion::find($id);
+            if (is_object($seccion) && !empty($seccion)) {
+                LoteSeccion::destroy($id);
+                $this->out = $this->respuesta_json('success', 200, 'Seccion eliminada correctamente.');
+                return response()->json($this->out, $this->out['code']);
+            } else {
+                $this->out['message'] = 'No existen datos con el parametro enviado.';
+            }
+        } catch (\Exception $e) {
+            $this->out['code'] = 500;
+            $this->out['message'] = 'No se puede eliminar el registro, conflicto en la base de datos, por favor contactar con el administrador del sistema.';
+            $this->out['error_message'] = $e->getMessage();
+        }
+        return response()->json($this->out, $this->out['code']);
     }
 
     public function respuesta_json(...$datos)
