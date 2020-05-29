@@ -100,3 +100,8 @@ Route::get('/api/bansis-app/index.php/lotes-select', 'Hacienda\LoteController@cu
 //Api Lotes seccion Hacienda
 Route::apiResource('api/bansis-app/index.php/lote-seccion', 'Hacienda\LoteSeccionController');
 Route::get('/api/bansis-app/index.php/lotes-seccion-select', 'Hacienda\LoteSeccionController@customSelect');
+
+//Api Lotes seccion labor empleado Hacienda
+Route::apiResource('api/bansis-app/index.php/lote-seccion-labor', 'Hacienda\LoteSeccionLaborEmpController');
+Route::get('api/bansis-app/index.php/get-data/lote-seccion-labor', 'Hacienda\LoteSeccionLaborEmpController@getLaboresSeccionEmpleado');
+Route::get('api/bansis-app/index.php/get-data/has-seccion', 'Hacienda\LoteSeccionLaborEmpController@getHasSeccionDisponibles');
