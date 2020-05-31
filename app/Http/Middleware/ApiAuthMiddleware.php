@@ -24,8 +24,9 @@ class ApiAuthMiddleware
             return $next($request);
         } else {
             $data = [
-                'status' => 'success',
+                'status' => 'error',
                 'code' => 400,
+                'login' => true,
                 'message' => 'El usuario no se ha identificado'
             ];
 

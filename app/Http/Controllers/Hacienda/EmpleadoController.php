@@ -67,17 +67,24 @@ class EmpleadoController extends Controller
         return response()->json($this->out, 200);
     }
 
-    public function getEmpleadosInventario($hacienda, $empleado)
+    public function getEmpleadosInventario(Request $request, $hacienda, $empleado)
     {
+        $indirecto = $request->get('indirecto');
         $empleados = Empleado::select('id', 'cedula', 'idhacienda', 'nombres as descripcion')
             ->where([
                 'idhacienda' => $hacienda,
                 'estado' => 1
-            ])
-            ->whereNotIn('id', [$empleado])
-            ->has('inventario')
+            ]);
+
+        if (!isset($indirecto) && empty($indirecto)) {
+            $empleados = $empleados->whereNotIn('id', [$empleado]);
+        }else{
+            $empleados = $empleados->where('id', $empleado);
+        };
+
+        $empleados = $empleados->has('inventario')
             ->with(['inventario' => function ($query) use ($hacienda) {
-                $query->select('id', 'idempleado', 'idmaterial', 'tot_egreso');
+                $query->select('id', 'idempleado', 'idmaterial', 'tot_egreso', 'sld_final');
                 $query->where(['estado' => 1]);
                 $query->with(['material' => function ($query) use ($hacienda) {
                     $query->select('id', 'codigo', 'stock', 'descripcion');

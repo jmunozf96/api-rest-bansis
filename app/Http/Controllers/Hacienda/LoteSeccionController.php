@@ -32,13 +32,21 @@ class LoteSeccionController extends Controller
 
         if (!empty($hacienda)) {
             $lote = LoteSeccion::selectRaw("id, idlote, (alias + ' - has: ' + CONVERT(varchar, has)) as descripcion, alias, has, estado")
-                ->with(['lote' => function ($query) use ($hacienda) {
+                ->whereHas('lote', function ($query) use ($hacienda) {
+                    $query->select('id', 'idhacienda');
+                    $query->where(['idhacienda' => $hacienda]);
+                });
+
+            if (!is_null($lote)) {
+                $lote = $lote->with(['lote' => function ($query) use ($hacienda) {
                     $query->select('id', 'identificacion', 'idhacienda', 'has', 'estado');
                     $query->where(['idhacienda' => $hacienda]);
                 }])
-                ->orderByRaw("(alias + ' - has: ' + CONVERT(varchar, has))", 'asc')
-                ->get();
-            if (!is_null($lote) && !empty($lote) && count($lote) > 0) {
+                    ->orderByRaw("(alias + ' - has: ' + CONVERT(varchar, has))", 'asc')
+                    ->get();
+            }
+
+            if (!is_null($lote) && !empty($lote)) {
                 $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
                 $this->out['dataArray'] = $lote;
             } else {

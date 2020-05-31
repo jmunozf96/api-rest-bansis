@@ -105,3 +105,4 @@ Route::get('/api/bansis-app/index.php/lotes-seccion-select', 'Hacienda\LoteSecci
 Route::apiResource('api/bansis-app/index.php/lote-seccion-labor', 'Hacienda\LoteSeccionLaborEmpController');
 Route::get('api/bansis-app/index.php/get-data/lote-seccion-labor', 'Hacienda\LoteSeccionLaborEmpController@getLaboresSeccionEmpleado');
 Route::get('api/bansis-app/index.php/get-data/has-seccion', 'Hacienda\LoteSeccionLaborEmpController@getHasSeccionDisponibles');
+Route::delete('api/bansis-app/index.php/lote-seccion-labor-detalle/{id}', 'Hacienda\LoteSeccionLaborEmpController@destroyDetalle');

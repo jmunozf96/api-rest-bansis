@@ -21,9 +21,48 @@ class LoteSeccionLaborEmpController extends Controller
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $hacienda = $request->get('hacienda');
+        $seccionlaboresEmpleado = LoteSeccionLaborEmp::selectRaw("id, idlabor, idempleado, has, updated_at, estado")
+            ->whereHas('empleado', function ($query) use ($hacienda) {
+                $query->select('id', 'idhacienda');
+                if (!empty($hacienda) && isset($hacienda))
+                    $query->where('idhacienda', $hacienda);
+            });
+
+        if (!is_null($seccionlaboresEmpleado)) {
+            $seccionlaboresEmpleado = $seccionlaboresEmpleado->with(['labor' => function ($query) {
+                $query->select('id', 'descripcion', 'estado');
+            }])
+                ->with(['empleado' => function ($query) use ($hacienda) {
+                    $query->select('id', 'idhacienda', 'nombres', 'cedula', 'codigo', 'estado');
+                    $query->with(['hacienda' => function ($query) {
+                        $query->select('id', 'detalle');
+                    }]);
+                    if (!empty($hacienda) && isset($hacienda))
+                        $query->where('idhacienda', $hacienda);
+                }])
+                ->with(['detalleSeccionLabor' => function ($query) {
+                    $query->select('id', 'idcabecera', 'idlote_sec', 'has', 'updated_at', 'estado');
+                    $query->with(['seccionLote' => function ($query) {
+                        $query->select('id', 'idlote', 'alias', 'has');
+                    }]);
+                }]);
+        }
+
+
+        $seccionlaboresEmpleado = $seccionlaboresEmpleado->orderBy('updated_at', 'DESC')
+            ->paginate(7);
+
+        if (!is_null($seccionlaboresEmpleado) && !empty($seccionlaboresEmpleado) && count($seccionlaboresEmpleado) > 0) {
+            $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
+            $this->out['dataArray'] = $seccionlaboresEmpleado;
+        } else {
+            $this->out['message'] = 'No hay datos registrados';
+        }
+
+        return response()->json($this->out, $this->out['code']);
     }
 
     public function store(Request $request)
@@ -62,6 +101,7 @@ class LoteSeccionLaborEmpController extends Controller
                         $laborSeccionEmpleado->updated_at = Carbon::now()->format(config('constants.format_date'));
                     } else {
                         $laborSeccionEmpleado->has = $cabecera['hasTotal'];
+                        $laborSeccionEmpleado->estado = true;
                         $laborSeccionEmpleado->updated_at = Carbon::now()->format(config('constants.format_date'));
                     }
 
@@ -97,8 +137,8 @@ class LoteSeccionLaborEmpController extends Controller
 
                         endforeach;
                         DB::commit();
-
-                        return response()->json($detalle, 200);
+                        $this->out = $this->respuesta_json('success', 200, 'Datos registrados correctamente');
+                        return response()->json($this->out, 200);
                     }
 
                 }
@@ -119,15 +159,17 @@ class LoteSeccionLaborEmpController extends Controller
         $total = 0;
         $idseccion = $request->get('seccion');
         $idcabecera = $request->get('cabecera');
+        $idlabor = $request->get('labor');
         //$seccion = LoteSeccion::where('id', $idseccion)->first();
+        $cabecera = LoteSeccionLaborEmp::where(['id' => $idcabecera, 'idlabor' => $idlabor])->first();
         $detalles = LoteSeccionLaborEmpDet::where(['idlote_sec' => $idseccion])->get();
-        if (count($detalles) > 0) {
-            foreach ($detalles as $detalle):
-                if ($detalle['idcabecera'] != $idcabecera) {
-                    $total += floatval($detalle['has']);
-                }
-            endforeach;
-        }
+        if (is_object($cabecera) && !empty($cabecera))
+            if (count($detalles) > 0)
+                foreach ($detalles as $detalle):
+                    if ($detalle['idcabecera'] != $cabecera->id)
+                        $total += floatval($detalle['has']);
+                endforeach;
+
         return response()->json([
             'idlote' => $idseccion,
             'hasDistribuidas' => round($total, 2)
@@ -169,7 +211,30 @@ class LoteSeccionLaborEmpController extends Controller
 
     public function show($id)
     {
-        //
+        try {
+            $cabecera = LoteSeccionLaborEmp::where('id', $id)
+                ->with(['labor' => function ($query) {
+                    $query->select('id', 'descripcion');
+                }])
+                ->with(['empleado' => function ($query) {
+                    $query->select('id', 'idhacienda', 'nombres as descripcion', 'idlabor', 'estado');
+                    $query->with(['hacienda' => function ($query) {
+                        $query->select('id', 'detalle as descripcion');
+                    }]);
+                }])
+                ->first();
+            if (!is_null($cabecera) && !empty($cabecera)) {
+                $this->out = $this->respuesta_json('success', 200, 'Dato encontrado.');
+                $this->out['laborSeccion'] = $cabecera;
+                return response()->json($this->out, $this->out['code']);
+            } else {
+                throw new \Exception('No existen datos con el parametro enviado.');
+            }
+
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, $this->out['code']);
+        }
     }
 
     public function update(Request $request, $id)
@@ -179,7 +244,52 @@ class LoteSeccionLaborEmpController extends Controller
 
     public function destroy($id)
     {
-        //
+        try {
+            DB::beginTransaction();
+            $detalle = LoteSeccionLaborEmp::where('id', $id)->first();
+            if (is_object($detalle) && !empty($detalle)) {
+                LoteSeccionLaborEmpDet::where(['idcabecera' => $id])->delete();
+                LoteSeccionLaborEmp::destroy($id);
+                DB::commit();
+                $this->out = $this->respuesta_json('success', 200, 'Dato eliminado correctamente.');
+                return response()->json($this->out, $this->out['code']);
+            } else {
+                throw new \Exception('No existen datos con el parametro enviado.');
+            }
+        } catch (\Exception $ex) {
+            DB::rollBack();
+            $this->out['code'] = 500;
+            $this->out['message'] = $ex->getMessage();
+            $this->out['message'] = 'No se puede eliminar el registro, conflicto en la base de datos, por favor contactar con el administrador del sistema.';
+            return response()->json($this->out, $this->out['code']);
+        }
+    }
+
+    public function destroyDetalle($id)
+    {
+        try {
+            DB::beginTransaction();
+            $detalle = LoteSeccionLaborEmpDet::where('id', $id)->first();
+            if (is_object($detalle) && !empty($detalle)) {
+                $cabecera = $detalle->idcabecera;
+                LoteSeccionLaborEmpDet::destroy($id);
+                $detalles_restantes = LoteSeccionLaborEmpDet::where('idcabecera', $cabecera)->get();
+                if (count($detalles_restantes) == 0) {
+                    LoteSeccionLaborEmp::where('id', $cabecera)->update(['estado' => false]);
+                }
+                DB::commit();
+                $this->out = $this->respuesta_json('success', 200, 'Dato eliminado correctamente.');
+                return response()->json($this->out, $this->out['code']);
+            } else {
+                throw new \Exception('No existen datos con el parametro enviado.');
+            }
+        } catch (\Exception $ex) {
+            DB::rollBack();
+            $this->out['code'] = 500;
+            $this->out['message'] = $ex->getMessage();
+            $this->out['message'] = 'No se puede eliminar el registro, conflicto en la base de datos, por favor contactar con el administrador del sistema.';
+            return response()->json($this->out, $this->out['code']);
+        }
     }
 
     public function respuesta_json(...$datos)
