@@ -38,14 +38,10 @@ class EmpleadoController extends Controller
             $hacienda = $request->get('hacienda');
             $labor = $request->get('labor');
             $busqueda = $request->get('params');
+
             $tamano = $request->get('size') ?? 5;
 
-            $data = Empleado::selectRaw("id, cedula, nombre1, nombre2, apellido1, apellido2, nombres as descripcion, nombres");
-
-
-            if (!empty($busqueda) && isset($busqueda)) {
-                $data = $data->where('nombres', 'like', "%{$busqueda}%")->orWhere('cedula', 'like', "%{$busqueda}%");
-            }
+            $data = Empleado::select("id", "idhacienda", "idlabor", "cedula", "nombre1", "nombre2", "apellido1", "apellido2", "nombres as descripcion", "nombres", "estado");
 
             if (!empty($hacienda) && isset($hacienda)) {
                 $data = $data->where('idhacienda', $hacienda);
@@ -53,6 +49,10 @@ class EmpleadoController extends Controller
 
             if (!empty($labor) && isset($labor)) {
                 $data = $data->where('idlabor', $labor);
+            }
+
+            if (!empty($busqueda) && isset($busqueda)) {
+                $data = $data->where('nombres', 'like', "%{$busqueda}%")->orWhere('cedula', 'like', "%{$busqueda}%");
             }
 
             $data = $data->take($tamano)
@@ -78,7 +78,7 @@ class EmpleadoController extends Controller
 
         if (!isset($indirecto) && empty($indirecto)) {
             $empleados = $empleados->whereNotIn('id', [$empleado]);
-        }else{
+        } else {
             $empleados = $empleados->where('id', $empleado);
         };
 
