@@ -181,19 +181,21 @@ class LoteSeccionLaborEmpController extends Controller
         try {
             $labor = $request->get('labor');
             $empleado = $request->get('empleado');
+            $idcalendar = $request->get('calendario');
 
             if (!empty($labor) && !empty($empleado)) {
                 $secciones = LoteSeccionLaborEmp::where([
                     'idlabor' => $labor,
                     'idempleado' => $empleado
                 ])
-                    ->with(['detalleSeccionLabor' => function ($query) {
+                    ->with(['detalleSeccionLabor' => function ($query) use ($idcalendar) {
                         $query->with(['seccionLote' => function ($query) {
                             $query->selectRaw("id, idlote, (alias + ' - has: ' + CONVERT(varchar, has)) as descripcion, alias, has, estado");
                             $query->with(['lote' => function ($query) {
                                 $query->select('id', 'identificacion', 'idhacienda', 'has', 'estado');
                             }]);
                         }]);
+                        $query->with(['enfunde']);
                         $query->select('id as idDetalle', 'fecha_apertura as fecha', 'idcabecera', 'idlote_sec', 'has');
                     }])
                     ->select('id', 'idlabor', 'idempleado', 'has')

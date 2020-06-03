@@ -106,3 +106,9 @@ Route::apiResource('api/bansis-app/index.php/lote-seccion-labor', 'Hacienda\Lote
 Route::get('api/bansis-app/index.php/get-data/lote-seccion-labor', 'Hacienda\LoteSeccionLaborEmpController@getLaboresSeccionEmpleado');
 Route::get('api/bansis-app/index.php/get-data/has-seccion', 'Hacienda\LoteSeccionLaborEmpController@getHasSeccionDisponibles');
 Route::delete('api/bansis-app/index.php/lote-seccion-labor-detalle/{id}', 'Hacienda\LoteSeccionLaborEmpController@destroyDetalle');
+
+//Api Calendario
+Route::get('api/bansis-app/calendario.php/semanaEnfunde', 'Hacienda\CalendarioController@semanaEnfunde');
+
+//Api Enfunde
+Route::apiResource('api/bansis-app/index.php/enfunde', 'Hacienda\EnfundeController');

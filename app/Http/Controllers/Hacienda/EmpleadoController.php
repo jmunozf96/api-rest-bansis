@@ -70,6 +70,7 @@ class EmpleadoController extends Controller
     public function getEmpleadosInventario(Request $request, $hacienda, $empleado)
     {
         $indirecto = $request->get('indirecto');
+        $calendario = $request->get('calendario');
         $empleados = Empleado::select('id', 'cedula', 'idhacienda', 'nombres as descripcion')
             ->where([
                 'idhacienda' => $hacienda,
@@ -83,12 +84,17 @@ class EmpleadoController extends Controller
         };
 
         $empleados = $empleados->has('inventario')
-            ->with(['inventario' => function ($query) use ($hacienda) {
+            ->with(['inventario' => function ($query) use ($hacienda, $calendario) {
                 $query->select('id', 'idempleado', 'idmaterial', 'tot_egreso', 'sld_final');
                 $query->where(['estado' => 1]);
                 $query->with(['material' => function ($query) use ($hacienda) {
                     $query->select('id', 'codigo', 'stock', 'descripcion');
                 }]);
+
+                if ($calendario && !empty($calendario)) {
+                    $query = $query->where('idcalendar', $calendario);
+                }
+
             }])
             ->get();
         return response()->json($empleados, 200);

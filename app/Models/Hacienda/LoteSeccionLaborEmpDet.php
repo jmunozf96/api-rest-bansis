@@ -14,7 +14,13 @@ class LoteSeccionLaborEmpDet extends BaseModel
         return $this->hasOne('App\Models\Hacienda\LoteSeccionLaborEmp', 'id', 'idcabecera');
     }
 
-    public function seccionLote(){
-        return $this->hasOne('App\Models\Hacienda\LoteSeccion', 'id','idlote_sec');
+    public function seccionLote()
+    {
+        return $this->hasOne('App\Models\Hacienda\LoteSeccion', 'id', 'idlote_sec');
+    }
+
+    public function enfunde()
+    {
+        return $this->hasMany('App\Models\Hacienda\EnfundeDet', 'idseccion', 'id');
     }
 }
