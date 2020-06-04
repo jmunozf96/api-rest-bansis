@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hacienda;
 
 use App\Http\Controllers\Controller;
+use App\Models\Hacienda\Empleado;
 use App\Models\Hacienda\Enfunde;
 use App\Models\Hacienda\EnfundeDet;
 use App\Models\Hacienda\InventarioEmpleado;
@@ -18,7 +19,7 @@ class EnfundeController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados', 'getEmpleadosInventario']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados', 'getEnfundeDetalle']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -34,7 +35,6 @@ class EnfundeController extends Controller
             $json = $request->input('json', null);
             $params = json_decode($json);
             $params_array = json_decode($json, true);
-
             if (is_object($params) && !empty($params)) {
                 $validacion = Validator::make($params_array, [
                     'cabecera' => 'required',
@@ -71,13 +71,37 @@ class EnfundeController extends Controller
 
                         $enfunde->save();
 
-                        InventarioEmpleado::where([
-                            'idempleado' => $cabecera['empleado']['id'],
-                            'idcalendar' => $enfunde->idcalendar
-                        ])->update(['tot_devolucion' => 0]);
+                        //Verificar materiales usados en el enfunde presente y futuro
+                        $materiales_usados = array();
+                        foreach ($detalle as $item):
+                            foreach ($item['presente'] as $material):
+                                array_push($materiales_usados, $material['detalle']['material']['id']);
+                            endforeach;
+                            foreach ($item['futuro'] as $material):
+                                array_push($materiales_usados, $material['detalle']['material']['id']);
+                            endforeach;
+                        endforeach;
 
+                        $loteros_reelevos = array();
+                        foreach ($detalle as $item):
+                            foreach ($item['presente'] as $reelevo):
+                                if ($reelevo['reelevo'])
+                                    array_push($loteros_reelevos, $reelevo['reelevo']['id']);
+                            endforeach;
+                            foreach ($item['futuro'] as $reelevo):
+                                if ($reelevo['reelevo'])
+                                    array_push($loteros_reelevos, $reelevo['reelevo']['id']);
+                            endforeach;
+                        endforeach;
+
+                        $materiales = array_map("unserialize", array_unique(array_map("serialize", $materiales_usados)));
+                        $reelevos = array_map("unserialize", array_unique(array_map("serialize", $loteros_reelevos)));
+                        $empleados = array_merge([$cabecera['empleado']['id']], $reelevos);
+
+                        $this->setMaterialesUsados($empleados, $enfunde->idcalendar, $materiales);
 
                         foreach ($detalle as $item):
+                            //return response()->json(['dato' => $item['presente'][2]], 200);
                             $this->detalleEnfunde($enfunde, $item['presente'], $cabecera['empleado']);
                             $this->detalleEnfunde($enfunde, $item['futuro'], $cabecera['empleado'], false);
                         endforeach;
@@ -100,9 +124,33 @@ class EnfundeController extends Controller
         }
     }
 
+    public function setMaterialesUsados($empleados, $calendario, $materiales)
+    {
+        try {
+            //Verificar materiales usados en el enfunde presente y futuro
+            $inventarios = InventarioEmpleado::where([
+                'idcalendar' => $calendario
+            ])
+                ->whereIn('idempleado', $empleados)
+                ->whereIn('idmaterial', $materiales)->get();
+
+            //return response()->json($materiales, 200);
+            foreach ($inventarios as $inventario):
+                $inventario['tot_devolucion'] = 0;
+                $inventario['sld_final'] = intval($inventario['tot_egreso']);
+                $inventario->save();
+            endforeach;
+
+            return true;
+        } catch (\Exception $ex) {
+            return false;
+        }
+    }
+
     public function detalleEnfunde($enfunde, $detalle, $empleado, $presente = true)
     {
         try {
+            $cantidad = 0;
             foreach ($detalle as $semana):
                 $enfunde_detalle = EnfundeDet::where([
                     'idenfunde' => $enfunde->id,
@@ -110,10 +158,8 @@ class EnfundeController extends Controller
                     'idseccion' => $semana['distribucion']['id'],
                 ]);
 
-                if (is_object($semana['reelevo'])) {
+                if ($semana['reelevo']) {
                     $enfunde_detalle->where('idreelevo', $semana['reelevo']['id']);
-                    $enfunde_detalle->reelevo = 1;
-                    $enfunde_detalle->idreelevo = $semana['reelevo']['id'];
                 }
 
                 $enfunde_detalle = $enfunde_detalle->first();
@@ -123,10 +169,12 @@ class EnfundeController extends Controller
                     $enfunde_detalle->idenfunde = $enfunde->id;
                     $enfunde_detalle->idmaterial = $semana['detalle']['material']['id'];
                     $enfunde_detalle->idseccion = $semana['distribucion']['id'];
-                    if (is_object($semana['reelevo'])) {
+
+                    if ($semana['reelevo']) {
                         $enfunde_detalle->reelevo = 1;
                         $enfunde_detalle->idreelevo = $semana['reelevo']['id'];
                     }
+
                     $enfunde_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
                 }
 
@@ -137,7 +185,13 @@ class EnfundeController extends Controller
                     $enfunde_detalle->cant_desb = $semana['desbunche'];
                 }
 
-                $this->updateInventaryEmpleado($enfunde->idcalendar, $semana['detalle']['material'], $empleado, $semana['cantidad']);
+                if ($semana['reelevo']) {
+                    $enfunde_detalle->reelevo = 1;
+                    $enfunde_detalle->idreelevo = $semana['reelevo']['id'];
+                    $this->updateInventaryEmpleado($enfunde->idcalendar, $semana['detalle']['material'], $semana['reelevo'], $semana['cantidad']);
+                } else {
+                    $this->updateInventaryEmpleado($enfunde->idcalendar, $semana['detalle']['material'], $empleado, $semana['cantidad']);
+                }
 
                 $enfunde_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $enfunde_detalle->save();
@@ -164,8 +218,101 @@ class EnfundeController extends Controller
                 $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $inventario->save();
             }
+            return true;
         } catch (\Exception $ex) {
             return false;
+        }
+    }
+
+    public function getEnfundeDetalle(Request $request)
+    {
+        try {
+            $idcalendar = $request->get('calendario');
+            $idseccion = $request->get('seccion');
+            $idempleado = $request->get('empleado');
+            $grupo = $request->get('grupoMaterial');
+
+            if (!empty($idcalendar)) {
+                $enfundeDetalle = Enfunde::select('id', 'idcalendar', 'fecha', 'presente', 'futuro', 'cerrado', 'estado')
+                    ->where([
+                        'idcalendar' => $idcalendar
+                    ])->with(['detalle' => function ($query) use ($idseccion) {
+                        $query->select('id', 'idenfunde', 'idmaterial', 'idseccion', 'cant_pre', 'cant_fut', 'cant_desb', 'reelevo', 'idreelevo');
+                        $query->where(['idseccion' => $idseccion]);
+                        $query->with(['seccion' => function ($query) {
+                            $query->select('id', 'idlote_sec');
+                            $query->with(['seccionLote' => function ($query) {
+                                $query->selectRaw("id, idlote, (alias + ' - has: ' + CONVERT(varchar, has)) as descripcion, alias, has, estado");
+                                $query->with(['lote' => function ($query) {
+                                    $query->select('id', 'identificacion', 'idhacienda', 'has', 'estado');
+                                }]);
+                            }]);
+                        }]);
+                    }])->first();
+
+                $presente = array();
+                $futuro = array();
+                $totalP = 0;
+                $totalF = 0;
+                $totalD = 0;
+
+                foreach ($enfundeDetalle->detalle as $detalle) {
+                    $reelevo = null;
+                    if ($detalle->reelevo) {
+                        $idempleado = $detalle->idreelevo;
+                        $reelevo = Empleado::select('id', 'idhacienda', 'cedula', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres')
+                            ->where(['id' => $detalle->idreelevo])->first();
+                    }
+
+                    $inventario = InventarioEmpleado::select('id', 'idempleado', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_devolucion', 'sld_final', 'estado')
+                        ->where([
+                            'idempleado' => $idempleado,
+                            'idmaterial' => $detalle->idmaterial,
+                            'idcalendar' => $idcalendar,
+                        ])->with(['material' => function ($query) {
+                            $query->select('id', 'descripcion', 'stock');
+                        }])
+                        ->first();
+
+                    $enfunde = new \stdClass();
+                    $enfunde->id = $detalle->id;
+                    $enfunde->fecha = $enfundeDetalle->fecha;
+                    $enfunde->distribucion = new \stdClass();
+                    $enfunde->distribucion->id = $detalle->seccion['id'];
+                    $enfunde->distribucion->loteSeccion = $detalle->seccion['seccionLote'];
+                    $enfunde->detalle = $inventario;
+                    $enfunde->reelevo = $reelevo;
+                    $enfunde->contabilizar = false;
+                    //Para la edicion de un item que no se contabiliza
+                    $enfunde->edicion = 0;
+
+                    if (intval($detalle['cant_pre']) > 0) {
+                        $enfunde->cantidad = intval($detalle['cant_pre']);
+                        $totalP += $enfunde->cantidad;
+                        $enfunde->desbunche = 0;
+                        array_push($presente, $enfunde);
+                    }
+
+                    if (intval($detalle['cant_fut']) > 0) {
+                        $enfunde->cantidad = intval($detalle['cant_fut']);
+                        $enfunde->desbunche = intval($detalle['cant_desb']);
+                        $totalF += $enfunde->cantidad;
+                        $totalD += $enfunde->desbunche;
+                        array_push($futuro, $enfunde);
+                    }
+
+                }
+
+                return response()->json([
+                    'presente' => $presente,
+                    'futuro' => $futuro,
+                    'totalP' => $totalP,
+                    'totalF' => $totalF,
+                    'totalD' => $totalD,
+                ], 200);
+            }
+        } catch (\Exception $ex) {
+            return response()->json([], 200);
         }
     }
 

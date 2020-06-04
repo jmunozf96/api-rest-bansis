@@ -112,3 +112,4 @@ Route::get('api/bansis-app/calendario.php/semanaEnfunde', 'Hacienda\CalendarioCo
 
 //Api Enfunde
 Route::apiResource('api/bansis-app/index.php/enfunde', 'Hacienda\EnfundeController');
+Route::get('api/bansis-app/index.php/getEnfunde/empleado', 'Hacienda\EnfundeController@getEnfundeDetalle');

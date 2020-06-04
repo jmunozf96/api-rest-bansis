@@ -19,7 +19,7 @@ class LoteSeccionLaborEmpDet extends BaseModel
         return $this->hasOne('App\Models\Hacienda\LoteSeccion', 'id', 'idlote_sec');
     }
 
-    public function enfunde()
+    public function enfundeDetalle()
     {
         return $this->hasMany('App\Models\Hacienda\EnfundeDet', 'idseccion', 'id');
     }

@@ -11,7 +11,7 @@ class Enfunde extends BaseModel
 
     public function detalle()
     {
-        return $this->hasOne('App\Models\Hacienda\EnfundeDet', 'idenfunde', 'id');
+        return $this->hasMany('App\Models\Hacienda\EnfundeDet', 'idenfunde', 'id');
     }
 
     public function hacienda()

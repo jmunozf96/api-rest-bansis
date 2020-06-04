@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hacienda;
 
 use App\Http\Controllers\Controller;
+use App\Models\Hacienda\EnfundeDet;
 use App\Models\Hacienda\LoteSeccion;
 use App\Models\Hacienda\LoteSeccionLaborEmp;
 use App\Models\Hacienda\LoteSeccionLaborEmpDet;
@@ -10,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use function foo\func;
 
 class LoteSeccionLaborEmpController extends Controller
 {
@@ -181,22 +183,23 @@ class LoteSeccionLaborEmpController extends Controller
         try {
             $labor = $request->get('labor');
             $empleado = $request->get('empleado');
-            $idcalendar = $request->get('calendario');
 
             if (!empty($labor) && !empty($empleado)) {
                 $secciones = LoteSeccionLaborEmp::where([
                     'idlabor' => $labor,
                     'idempleado' => $empleado
-                ])
-                    ->with(['detalleSeccionLabor' => function ($query) use ($idcalendar) {
+                ]);
+
+                $secciones = $secciones
+                    ->with(['detalleSeccionLabor' => function ($query) {
                         $query->with(['seccionLote' => function ($query) {
                             $query->selectRaw("id, idlote, (alias + ' - has: ' + CONVERT(varchar, has)) as descripcion, alias, has, estado");
                             $query->with(['lote' => function ($query) {
                                 $query->select('id', 'identificacion', 'idhacienda', 'has', 'estado');
                             }]);
                         }]);
-                        $query->with(['enfunde']);
-                        $query->select('id as idDetalle', 'fecha_apertura as fecha', 'idcabecera', 'idlote_sec', 'has');
+
+                        $query->select('id', 'fecha_apertura as fecha', 'idcabecera', 'idlote_sec', 'has');
                     }])
                     ->select('id', 'idlabor', 'idempleado', 'has')
                     ->first();

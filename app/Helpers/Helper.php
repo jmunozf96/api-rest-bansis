@@ -47,4 +47,8 @@ class Helper
 
         return $cadena;
     }
+
+    public function extraerRepetidosArray($datos){
+
+    }
 }

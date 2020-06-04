@@ -258,7 +258,6 @@ class EgresoBodegaController extends Controller
                     }
                 }
 
-                $inventario->tot_devolucion = 0;
                 $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
                 $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $inventario->save();
