@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use MongoDB\Driver\Exception\Exception;
 
 class EnfundeController extends Controller
 {
@@ -227,6 +228,7 @@ class EnfundeController extends Controller
     public function getEnfundeDetalle(Request $request)
     {
         try {
+            $idhacienda = $request->get('hacienda');
             $idcalendar = $request->get('calendario');
             $idseccion = $request->get('seccion');
             $idempleado = $request->get('empleado');
@@ -235,7 +237,8 @@ class EnfundeController extends Controller
             if (!empty($idcalendar)) {
                 $enfundeDetalle = Enfunde::select('id', 'idcalendar', 'fecha', 'presente', 'futuro', 'cerrado', 'estado')
                     ->where([
-                        'idcalendar' => $idcalendar
+                        'idcalendar' => $idcalendar,
+                        'idhacienda' => $idhacienda
                     ])->with(['detalle' => function ($query) use ($idseccion) {
                         $query->select('id', 'idenfunde', 'idmaterial', 'idseccion', 'cant_pre', 'cant_fut', 'cant_desb', 'reelevo', 'idreelevo');
                         $query->where(['idseccion' => $idseccion]);
@@ -328,9 +331,86 @@ class EnfundeController extends Controller
     }
 
 
-    public function destroy($id)
+    public function destroy($id, Request $request)
     {
-        //
+        try {
+            $futuro = $request->get('futuro');
+
+            $seccion_enfundada = EnfundeDet::where(['id' => $id])
+                ->with(['seccion' => function ($query) {
+                    $query->select('id', 'idcabecera', 'idlote_Sec');
+                    $query->with(['cabSeccionLabor']);
+                }])
+                ->with(['enfunde' => function ($query) {
+                    $query->select('id', 'idhacienda', 'idcalendar');
+                }])
+                ->first();
+
+            if (is_object($seccion_enfundada)) {
+
+                $calendario = $seccion_enfundada->enfunde->idcalendar;
+                $idmaterial = $seccion_enfundada->idmaterial;
+                $idempleado = $seccion_enfundada->seccion->cabSeccionLabor->idempleado;
+
+                if ($seccion_enfundada->reelevo == 1) {
+                    $idempleado = $seccion_enfundada->idreelevo;
+                }
+
+                $inventario_empleado = InventarioEmpleado::where([
+                    'idempleado' => $idempleado,
+                    'idcalendar' => $calendario,
+                    'idmaterial' => $idmaterial
+                ])->first();
+
+                if ($futuro) {
+                    $inventario_empleado->tot_devolucion -= $seccion_enfundada->cant_fut;
+                }
+                //$inventario_empleado->tot_devolucion -= $seccion_enfundada
+                $inventario_empleado->save();
+                return response()->json($seccion_enfundada, 200);
+            }
+
+            throw new \Exception('No se encontraron datos');
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, $this->out['code']);
+        }
+    }
+
+    public function deleteEnfunde(Request $request)
+    {
+        try {
+            $json = $request->input('json');
+            $params = json_decode($json);
+            $params_array = json_decode($json, true);
+
+            if (is_object($params) && !empty($params)) {
+                $validacion = Validator::make($params_array, [
+                    'material' => 'required',
+                    'seccion' => 'required',
+                    'hacienda' => 'required',
+                    'calendario' => 'required',
+                    'cantidad' => 'required',
+                    'presente' => 'required',
+                    'futuro' => 'required'
+                ]);
+
+                if (!$validacion->fails()) {
+                    $enfunde = Enfunde::where([
+                        'idcalendar' => $params->calendario,
+                        'hacienda' => $params->hacienda
+                    ])->with(['detalle' => function ($query) {
+                        $query->select();
+                    }]);
+                }
+
+                $this->out['errors'] = $validacion->errors()->all();
+                throw new \Exception('No se han recibido los datos completos');
+            }
+
+        } catch (\Exception $ex) {
+
+        }
     }
 
     public function respuesta_json(...$datos)
