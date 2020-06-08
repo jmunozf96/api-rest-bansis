@@ -356,7 +356,7 @@ class EgresoBodegaController extends Controller
             $detalle = EgresoBodegaDetalle::where('id', $id)->first();
 
             DB::beginTransaction();
-            if ($this->destroyTransferencia($detalle)) {
+            if ($this->destroyTransferencia($detalle, true)) {
                 $detalle_origen = EgresoBodegaDetalle::where('id_origen', $detalle->id)->first();
                 $detalle->delete();
                 if ($this->destroyTransferencia($detalle_origen, true)) {
@@ -404,7 +404,13 @@ class EgresoBodegaController extends Controller
                 } else {
                     $inventario->tot_egreso += $detalle->cantidad;
                 }
+
                 $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
+
+                if ($inventario->sld_final < 0) {
+                    return false;
+                }
+
                 $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $inventario->save();
 
@@ -449,18 +455,21 @@ class EgresoBodegaController extends Controller
                     DB::beginTransaction();
                     //Transferencia
                     //Buscamos el dato de donde se va a transferir
-                    $inventario = InventarioEmpleado::where('id', $params_array['id_inventario_tomado'])->first();
+                    $inventario = InventarioEmpleado::where('id', $params_array['id_inventario_tomado'])
+                        ->first();
                     if (is_object($inventario)) {
                         $inventario->tot_egreso -= $params_array['cantidad'];
                         $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
                         $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
                         $inventario->save();
                     }
+
                     //Generamos el movimiento de transferencia (-)
                     $egreso = EgresoBodega::where([
                         'idempleado' => $params_array['emp_solicitado']['id'],
                         'idcalendario' => $inventario->idcalendar
                     ])->first();
+
                     if (is_object($egreso)) {
                         $movimiento = new EgresoBodegaDetalle();
                         $movimiento->idegreso = $egreso->id;
@@ -478,16 +487,21 @@ class EgresoBodegaController extends Controller
                         $inventario->delete();
                     }
 
+                    $timestamp = strtotime(str_replace('/', '-', $params_array['time']));
+                    $params_array['time'] = date(config('constants.date'), $timestamp);
+                    $calendario = Calendario::where('fecha', $params_array['time'])->first();
+
                     //Pasamos el saldo al inventario correspondiente como nuevo item,
                     $existe_inventario_transferir = InventarioEmpleado::where([
-                        'idcalendar' => $inventario->idcalendar,
+                        'idcalendar' => $calendario->codigo,
                         'idempleado' => $params_array['emp_recibe']['id'],
                         'idmaterial' => $inventario->idmaterial
                     ])->first();
+
                     if (!is_object($existe_inventario_transferir) && empty($existe_inventario_transferir)) {
                         $inventario_traspaso = new InventarioEmpleado();
                         $inventario_traspaso->codigo = $this->codigoTransaccionInventario($params_array['hacienda']);
-                        $inventario_traspaso->idcalendar = $inventario->idcalendar;
+                        $inventario_traspaso->idcalendar = $calendario->codigo;
                         $inventario_traspaso->idempleado = $params_array['emp_recibe']['id'];
                         $inventario_traspaso->idmaterial = $inventario->idmaterial;
                         $inventario_traspaso->sld_inicial = 0;
@@ -507,14 +521,13 @@ class EgresoBodegaController extends Controller
                     //Generamos el movimiento de transferencia (+)
                     $egreso_recibido = EgresoBodega::where([
                         'idempleado' => $params_array['emp_recibe']['id'],
-                        'idcalendario' => $inventario->idcalendar
+                        'idcalendario' => $calendario->codigo
                     ])->first();
 
                     $detalle = new EgresoBodegaDetalle();
 
                     if (!is_object($egreso_recibido)) {
                         //crear el movimiento con cabecera y detalle completo
-                        $calendario = Calendario::where('fecha', $params_array['time'])->first();
                         $cabecera = new EgresoBodega();
                         $cabecera->codigo = $this->codigoTransaccion($params_array['hacienda']);
                         $cabecera->idcalendario = $inventario->idcalendar;
@@ -619,27 +632,44 @@ class EgresoBodegaController extends Controller
                 ])->first();
                 $inventario->tot_egreso = intval($inventario->tot_egreso) - intval($detalle_egreso->cantidad);
                 $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
+
+                if ($inventario->sld_final < 0) {
+                    throw new \Exception('No se puede eliminar este movimiento');
+                }
+
                 $inventario->save();
 
+                $status = false;
+
                 if (intval($inventario->sld_final) === 0)
-                    $inventario->delete();
+                    $status = $inventario->delete();
+
+                if (!$status) {
+                    throw new \Exception('No se puede eliminar el registro.');
+                }
 
                 if ($eliminar_cabecera)
-                    $egreso->delete();
+                    $status = $egreso->delete();
+
+                if (!$status) {
+                    throw new \Exception('No se puede eliminar el registro.');
+                }
 
                 $material_stock = Material::where(['id' => $detalle_egreso->idmaterial])->first();
                 $material_stock->stock += floatval($detalle_egreso->cantidad);
                 $material_stock->save();
 
-                DB::commit();
+                if ($status) {
+                    DB::commit();
+                    $this->out = $this->respuesta_json('success', 200, 'Movimiento se ha eliminado correctamente, inventario actualizado.');
+                    return response()->json($this->out, $this->out['code']);
+                }
 
-                $this->out = $this->respuesta_json('success', 200, 'Movimiento se ha eliminado correctamente, inventario actualizado.');
-                return response()->json($this->out, $this->out['code']);
             }
             throw new \Exception('No se encontro el registro con este Id');
         } catch (\Exception $ex) {
             $this->out['code'] = 500;
-            $this->out['message'] = 'No se puede eliminar el registro.';
+            $this->out['message'] = $ex->getMessage();
             $this->out['error_message'] = $ex->getMessage();
             DB::rollBack();
             return response()->json($this->out, $this->out['code']);

@@ -15,6 +15,7 @@ Route::get('/', function () {
 //Rutas para acceso y configuracion de usuarios
 Route::post('/api/bansis/user/create', 'UserController@create');
 Route::post('/api/bansis/login', 'UserController@login');
+Route::post('/api/bansis/verifyToken', 'UserController@verifyToken');
 
 //Ruta resource para destinos de empacadora
 Route::resource('/api/emp_destino', 'Empacadora\EmpDestinoController')->except([
@@ -113,3 +114,7 @@ Route::get('api/bansis-app/calendario.php/semanaEnfunde', 'Hacienda\CalendarioCo
 //Api Enfunde
 Route::apiResource('api/bansis-app/index.php/enfunde', 'Hacienda\EnfundeController');
 Route::get('api/bansis-app/index.php/getEnfunde/empleado', 'Hacienda\EnfundeController@getEnfundeDetalle');
+Route::get('api/bansis-app/index.php/getEnfunde/semanal', 'Hacienda\EnfundeController@getEnfundeSemanal');
+Route::get('api/bansis-app/index.php/getEnfunde/semanal/detalle/{id}', 'Hacienda\EnfundeController@getEnfundeSemanalDetail');
+Route::post('api/bansis-app/index.php/endunde/cerrar/semana/{id}', 'Hacienda\EnfundeController@closeEnfundeSemanal');
+Route::delete('api/bansis-app/index.php/deleteEnfunde/empleado', 'Hacienda\EnfundeController@deleteEnfunde');

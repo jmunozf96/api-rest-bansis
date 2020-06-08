@@ -179,6 +179,7 @@ class BodegaController extends Controller
             $this->out['code'] = 500;
             $this->out['message'] = 'No se puede eliminar el registro, conflicto en la base de datos, por favor contactar con el administrador del sistema.';
             $this->out['error_message'] = $e->getMessage();
+            return response()->json($this->out, $this->out['code']);
         }
     }
 

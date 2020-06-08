@@ -85,16 +85,16 @@ class EmpleadoController extends Controller
 
         $empleados = $empleados->has('inventario')
             ->with(['inventario' => function ($query) use ($hacienda, $calendario) {
-                $query->select('id', 'idempleado', 'idmaterial', 'tot_egreso', 'sld_final');
                 $query->where(['estado' => 1]);
+                $query->where('sld_final', '>', 0);
                 $query->with(['material' => function ($query) use ($hacienda) {
                     $query->select('id', 'codigo', 'stock', 'descripcion');
                 }]);
-
                 if ($calendario && !empty($calendario)) {
-                    $query = $query->where('idcalendar', $calendario);
+                    $query->where('idcalendar', $calendario);
                 }
 
+                $query->select('id', 'idempleado', 'idcalendar', 'idmaterial', 'tot_egreso', 'sld_final');
             }])
             ->get();
         return response()->json($empleados, 200);

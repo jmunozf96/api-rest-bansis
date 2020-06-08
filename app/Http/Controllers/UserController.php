@@ -129,6 +129,16 @@ class UserController extends Controller
         return $nick;
     }
 
+    public function verifyToken(Request $request)
+    {
+        $token = $request->header('Authorization');
+        $jwtauth = new JwtAuth();
+        $checkTocken = $jwtauth->checkToken($token);
+        return response()->json([
+            'logueado' => $checkTocken
+        ], 200);
+    }
+
     protected function response_array(...$data)
     {
         return [

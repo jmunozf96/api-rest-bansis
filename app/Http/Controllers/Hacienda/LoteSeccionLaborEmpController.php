@@ -116,7 +116,8 @@ class LoteSeccionLaborEmpController extends Controller
                             $item['fecha'] = date(config('constants.date'), $timestamp);
                             $laborSeccionEmpleadoDetalle = LoteSeccionLaborEmpDet::where([
                                 'idcabecera' => $laborSeccionEmpleado->id,
-                                'idlote_sec' => $item['loteSeccion']['id']
+                                'idlote_sec' => $item['loteSeccion']['id'],
+                                'estado' => true
                             ])->first();
                             if (!is_object($laborSeccionEmpleadoDetalle) && empty($laborSeccionEmpleadoDetalle)) {
                                 $laborSeccionEmpleadoDetalle = new LoteSeccionLaborEmpDet();
@@ -160,17 +161,30 @@ class LoteSeccionLaborEmpController extends Controller
     {
         $total = 0;
         $idseccion = $request->get('seccion');
-        $idcabecera = $request->get('cabecera');
+        $idempleado = $request->get('empleado');
         $idlabor = $request->get('labor');
+
         //$seccion = LoteSeccion::where('id', $idseccion)->first();
-        $cabecera = LoteSeccionLaborEmp::where(['id' => $idcabecera, 'idlabor' => $idlabor])->first();
-        $detalles = LoteSeccionLaborEmpDet::where(['idlote_sec' => $idseccion])->get();
-        if (is_object($cabecera) && !empty($cabecera))
+        $cabecera = LoteSeccionLaborEmp::where(['idempleado' => $idempleado, 'idlabor' => $idlabor])->first();
+        if (is_object($cabecera) && !empty($cabecera)) {
+            $detalles = LoteSeccionLaborEmpDet::where(['idlote_sec' => $idseccion, 'estado' => true])->get();
             if (count($detalles) > 0)
                 foreach ($detalles as $detalle):
                     if ($detalle['idcabecera'] != $cabecera->id)
                         $total += floatval($detalle['has']);
                 endforeach;
+        } else {
+            $cabecera = LoteSeccionLaborEmp::where(['idlabor' => $idlabor])->get()->pluck('id');
+            if (is_object($cabecera)) {
+                $detalles = LoteSeccionLaborEmpDet::whereIn('idcabecera', $cabecera)
+                    ->where(['idlote_sec' => $idseccion, 'estado' => true])->get();
+                if (count($detalles) > 0)
+                    foreach ($detalles as $detalle):
+                        $total += floatval($detalle['has']);
+                    endforeach;
+            }
+        }
+
 
         return response()->json([
             'idlote' => $idseccion,
@@ -183,6 +197,7 @@ class LoteSeccionLaborEmpController extends Controller
         try {
             $labor = $request->get('labor');
             $empleado = $request->get('empleado');
+            $activo = $request->get('activo');
 
             if (!empty($labor) && !empty($empleado)) {
                 $secciones = LoteSeccionLaborEmp::where([
@@ -191,17 +206,19 @@ class LoteSeccionLaborEmpController extends Controller
                 ]);
 
                 $secciones = $secciones
-                    ->with(['detalleSeccionLabor' => function ($query) {
+                    ->with(['detalleSeccionLabor' => function ($query) use ($activo) {
                         $query->with(['seccionLote' => function ($query) {
                             $query->selectRaw("id, idlote, (alias + ' - has: ' + CONVERT(varchar, has)) as descripcion, alias, has, estado");
                             $query->with(['lote' => function ($query) {
                                 $query->select('id', 'identificacion', 'idhacienda', 'has', 'estado');
                             }]);
                         }]);
-
-                        $query->select('id', 'fecha_apertura as fecha', 'idcabecera', 'idlote_sec', 'has');
+                        if ($activo) {
+                            $query->where('estado', true);
+                        }
+                        $query->select('id', 'fecha_apertura as fecha', 'idcabecera', 'idlote_sec', 'has', 'estado');
                     }])
-                    ->select('id', 'idlabor', 'idempleado', 'has')
+                    ->select('id', 'idlabor', 'idempleado', 'has', 'estado')
                     ->first();
 
                 return response(['secciones' => $secciones], 200);
@@ -275,6 +292,11 @@ class LoteSeccionLaborEmpController extends Controller
         try {
             DB::beginTransaction();
             $detalle = LoteSeccionLaborEmpDet::where('id', $id)->first();
+            $detalle->estado = false;
+            $detalle->save();
+            DB::commit();
+
+            DB::beginTransaction();
             if (is_object($detalle) && !empty($detalle)) {
                 $cabecera = $detalle->idcabecera;
                 LoteSeccionLaborEmpDet::destroy($id);
