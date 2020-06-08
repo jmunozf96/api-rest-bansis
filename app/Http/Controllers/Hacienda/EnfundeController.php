@@ -196,42 +196,42 @@ class EnfundeController extends Controller
                         $enfunde->save();
 
                         //Verificar materiales usados en el enfunde presente y futuro
-                       /* $materiales_usados = array();
-                        foreach ($detalle as $item):
-                            if (isset($item['presente'])) {
-                                foreach ($item['presente'] as $material):
-                                    array_push($materiales_usados, $material['detalle']['material']['id']);
-                                endforeach;
-                            }
+                        /* $materiales_usados = array();
+                         foreach ($detalle as $item):
+                             if (isset($item['presente'])) {
+                                 foreach ($item['presente'] as $material):
+                                     array_push($materiales_usados, $material['detalle']['material']['id']);
+                                 endforeach;
+                             }
 
-                            if (isset($item['futuro'])) {
-                                foreach ($item['futuro'] as $material):
-                                    array_push($materiales_usados, $material['detalle']['material']['id']);
-                                endforeach;
-                            }
+                             if (isset($item['futuro'])) {
+                                 foreach ($item['futuro'] as $material):
+                                     array_push($materiales_usados, $material['detalle']['material']['id']);
+                                 endforeach;
+                             }
 
-                        endforeach;
-                        $loteros_reelevos = array();
-                        foreach ($detalle as $item):
-                            if (isset($item['presente'])) {
-                                foreach ($item['presente'] as $reelevo):
-                                    if ($reelevo['reelevo'])
-                                        array_push($loteros_reelevos, $reelevo['reelevo']['id']);
-                                endforeach;
-                            }
+                         endforeach;
+                         $loteros_reelevos = array();
+                         foreach ($detalle as $item):
+                             if (isset($item['presente'])) {
+                                 foreach ($item['presente'] as $reelevo):
+                                     if ($reelevo['reelevo'])
+                                         array_push($loteros_reelevos, $reelevo['reelevo']['id']);
+                                 endforeach;
+                             }
 
-                            if (isset($item['futuro'])) {
-                                foreach ($item['futuro'] as $reelevo):
-                                    if ($reelevo['reelevo'])
-                                        array_push($loteros_reelevos, $reelevo['reelevo']['id']);
-                                endforeach;
-                            }
-                        endforeach;
+                             if (isset($item['futuro'])) {
+                                 foreach ($item['futuro'] as $reelevo):
+                                     if ($reelevo['reelevo'])
+                                         array_push($loteros_reelevos, $reelevo['reelevo']['id']);
+                                 endforeach;
+                             }
+                         endforeach;
 
-                        $materiales = array_map("unserialize", array_unique(array_map("serialize", $materiales_usados)));
-                        $reelevos = array_map("unserialize", array_unique(array_map("serialize", $loteros_reelevos)));
-                        //$empleados = array_merge([$cabecera['empleado']['id']], $reelevos);
-                       // $this->setMaterialesUsados([$cabecera['empleado']['id']], $enfunde->idcalendar, $materiales);*/
+                         $materiales = array_map("unserialize", array_unique(array_map("serialize", $materiales_usados)));
+                         $reelevos = array_map("unserialize", array_unique(array_map("serialize", $loteros_reelevos)));
+                         //$empleados = array_merge([$cabecera['empleado']['id']], $reelevos);
+                        // $this->setMaterialesUsados([$cabecera['empleado']['id']], $enfunde->idcalendar, $materiales);*/
 
 
                         foreach ($detalle as $item):
@@ -303,6 +303,8 @@ class EnfundeController extends Controller
 
                 $enfunde_detalle = $enfunde_detalle->first();
 
+                $cantidad = 0;
+
                 if (!is_object($enfunde_detalle) && empty($enfunde_detalle)) {
                     $enfunde_detalle = new EnfundeDet();
                     $enfunde_detalle->idenfunde = $enfunde->id;
@@ -315,22 +317,20 @@ class EnfundeController extends Controller
                     }
 
                     $enfunde_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
+                } else {
+                    if ($presente) {
+                        $cantidad = $enfunde_detalle->cant_pre;
+                    } else {
+                        $cantidad = $enfunde_detalle->cant_fut;
+                    }
                 }
 
                 if ($semana['reelevo']) {
-                    $inventarioReelevo = InventarioEmpleado::where([
+                    $inventario = InventarioEmpleado::where([
                         'idempleado' => $semana['reelevo']['id'],
                         'idmaterial' => $semana['detalle']['material']['id'],
                         'idcalendar' => $enfunde->idcalendar
                     ])->first();
-
-                    if ($inventarioReelevo->tot_devolucion >= ($enfunde_detalle->cant_pre + $enfunde_detalle->cant_fut)) {
-                        $inventarioReelevo->tot_devolucion = ($inventarioReelevo->tot_devolucion - ($enfunde_detalle->cant_pre + $enfunde_detalle->cant_fut)) + $semana['cantidad'];
-                    } else {
-                        $inventarioReelevo->tot_devolucion = $inventarioReelevo->tot_devolucion + $semana['cantidad'];
-                    }
-                    $inventarioReelevo->sld_final = ($inventarioReelevo->sld_inicial + $inventarioReelevo->tot_egreso) - $inventarioReelevo->tot_devolucion;
-                    $inventarioReelevo->save();
 
                     $enfunde_detalle->reelevo = 1;
                     $enfunde_detalle->idreelevo = $semana['reelevo']['id'];
@@ -341,15 +341,17 @@ class EnfundeController extends Controller
                         'idmaterial' => $semana['detalle']['material']['id'],
                         'idcalendar' => $enfunde->idcalendar
                     ])->first();
+                    //$this->updateInventaryEmpleado($enfunde->idcalendar, $semana['detalle']['material'], $empleado, $semana['cantidad']);
+                }
 
-                    if ($inventario->tot_devolucion >= ($enfunde_detalle->cant_pre + $enfunde_detalle->cant_fut)) {
-                        $inventario->tot_devolucion = ($inventario->tot_devolucion - ($enfunde_detalle->cant_pre + $enfunde_detalle->cant_fut)) + $semana['cantidad'];
+                if (is_object($inventario)) {
+                    if ($inventario->tot_devolucion >= $cantidad) {
+                        $inventario->tot_devolucion = ($inventario->tot_devolucion - $cantidad) + $semana['cantidad'];
                     } else {
                         $inventario->tot_devolucion = $inventario->tot_devolucion + $semana['cantidad'];
                     }
                     $inventario->sld_final = ($inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_devolucion;
                     $inventario->save();
-                    //$this->updateInventaryEmpleado($enfunde->idcalendar, $semana['detalle']['material'], $empleado, $semana['cantidad']);
                 }
 
                 if ($presente) {
@@ -358,7 +360,6 @@ class EnfundeController extends Controller
                     $enfunde_detalle->cant_fut = $semana['cantidad'];
                     $enfunde_detalle->cant_desb = $semana['desbunche'];
                 }
-
 
                 $enfunde_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $enfunde_detalle->save();
@@ -510,7 +511,7 @@ class EnfundeController extends Controller
                     }])->first();
 
                 $datos = array();
-                if(is_object($enfundeDetalle)){
+                if (is_object($enfundeDetalle)) {
                     foreach ($enfundeDetalle->detalle as $detalle):
                         $data = new \stdClass();
                         $data->presente = array();
@@ -674,7 +675,7 @@ class EnfundeController extends Controller
 
                                     $respuesta = $enfunde_detalle->save();
 
-                                    if ($enfunde_detalle->can_fut == 0 && $enfunde_detalle->cant_pre == 0) {
+                                    if ($enfunde_detalle->cant_fut == 0 && $enfunde_detalle->cant_pre == 0) {
                                         $respuesta = $enfunde_detalle->delete();
                                     }
                                 }

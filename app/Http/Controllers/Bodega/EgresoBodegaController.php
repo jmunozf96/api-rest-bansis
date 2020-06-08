@@ -453,6 +453,8 @@ class EgresoBodegaController extends Controller
 
                 if (!$validacion->fails()) {
                     DB::beginTransaction();
+                    $timestamp = strtotime(str_replace('/', '-', $params_array['time']));
+                    $params_array['time'] = date(config('constants.date'), $timestamp);
                     //Transferencia
                     //Buscamos el dato de donde se va a transferir
                     $inventario = InventarioEmpleado::where('id', $params_array['id_inventario_tomado'])
@@ -487,8 +489,6 @@ class EgresoBodegaController extends Controller
                         $inventario->delete();
                     }
 
-                    $timestamp = strtotime(str_replace('/', '-', $params_array['time']));
-                    $params_array['time'] = date(config('constants.date'), $timestamp);
                     $calendario = Calendario::where('fecha', $params_array['time'])->first();
 
                     //Pasamos el saldo al inventario correspondiente como nuevo item,
@@ -533,6 +533,7 @@ class EgresoBodegaController extends Controller
                         $cabecera->idcalendario = $inventario->idcalendar;
                         $cabecera->periodo = $calendario->periodo;
                         $cabecera->semana = $calendario->semana;
+                        $cabecera->fecha = $params_array['time'];
                         $cabecera->idempleado = $params_array['emp_recibe']['id'];
                         $cabecera->created_at = Carbon::now()->format(config('constants.format_date'));
                         $cabecera->updated_at = Carbon::now()->format(config('constants.format_date'));
