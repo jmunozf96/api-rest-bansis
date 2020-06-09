@@ -113,6 +113,7 @@ Route::get('api/bansis-app/calendario.php/semanaEnfunde', 'Hacienda\CalendarioCo
 
 //Api Enfunde
 Route::apiResource('api/bansis-app/index.php/enfunde', 'Hacienda\EnfundeController');
+Route::get('api/bansis-app/index.php/getLotero', 'Hacienda\EnfundeController@getLoteros');
 Route::get('api/bansis-app/index.php/getEnfunde/empleado', 'Hacienda\EnfundeController@getEnfundeDetalle');
 Route::get('api/bansis-app/index.php/getEnfunde/semanal', 'Hacienda\EnfundeController@getEnfundeSemanal');
 Route::get('api/bansis-app/index.php/getEnfunde/semanal/detalle/{id}', 'Hacienda\EnfundeController@getEnfundeSemanalDetail');

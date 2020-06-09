@@ -31,7 +31,8 @@ class LoteSeccionController extends Controller
         $hacienda = $request->get('hacienda');
 
         if (!empty($hacienda)) {
-            $lote = LoteSeccion::selectRaw("id, idlote, (alias + ' - has: ' + CONVERT(varchar, has)) as descripcion, alias, has, estado")
+            $lote = LoteSeccion::join('HAC_LOTES as lote', 'lote.id', 'HAC_LOTES_SECCION.idlote')
+                ->selectRaw("HAC_LOTES_SECCION.id, idlote, (right('0' + lote.identificacion,2) + HAC_LOTES_SECCION.descripcion + ' - has: ' + CONVERT(varchar, HAC_LOTES_SECCION.has)) as descripcion, HAC_LOTES_SECCION.alias, HAC_LOTES_SECCION.has, HAC_LOTES_SECCION.estado")
                 ->whereHas('lote', function ($query) use ($hacienda) {
                     $query->select('id', 'idhacienda');
                     $query->where(['idhacienda' => $hacienda]);
@@ -42,7 +43,7 @@ class LoteSeccionController extends Controller
                     $query->select('id', 'identificacion', 'idhacienda', 'has', 'estado');
                     $query->where(['idhacienda' => $hacienda]);
                 }])
-                    ->orderByRaw("(alias + ' - has: ' + CONVERT(varchar, has))", 'asc')
+                    ->orderByRaw("(right('0' + lote.identificacion,2) + HAC_LOTES_SECCION.descripcion + ' - has: ' + CONVERT(varchar, HAC_LOTES_SECCION.has))")
                     ->get();
             }
 

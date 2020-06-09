@@ -23,7 +23,7 @@ class EnfundeController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados',
+        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados', 'getLoteros',
             'getEnfundeDetalle', 'getEnfundeSemanal', 'getEnfundeSemanalDetail', 'closeEnfundeSemanal']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
@@ -73,6 +73,111 @@ class EnfundeController extends Controller
             'categories' => $periodos
         ], 200);
         //Data por hacienda 2
+    }
+
+    public function getLoteros(Request $request)
+    {
+        try {
+            $codigoCalendar = $request->get('calendario');
+
+            $loteros = Empleado::where([
+                'idlabor' => 3
+            ])->get();
+
+            $this->out['dataArray'] = [];
+
+            if (count($loteros) > 0) {
+                $loteros = Empleado::groupBy('HAC_EMPLEADOS.id', 'HAC_EMPLEADOS.codigo')
+                    ->leftJoin('HAC_INVENTARIO_EMPLEADO as inventario', 'inventario.idempleado', 'HAC_EMPLEADOS.id')
+                    ->leftJoin('BOD_MATERIALES as material', 'material.id', 'inventario.idmaterial')
+                    ->where('material.descripcion', 'like', '%funda%')
+                    ->select('HAC_EMPLEADOS.id', 'HAC_EMPLEADOS.codigo', DB::raw('ISNULL(SUM(inventario.tot_egreso), 0) As total'))
+                    ->where([
+                        'idlabor' => 3,
+                        'HAC_EMPLEADOS.estado' => true
+                    ])->get();
+
+                $enfunde = Enfunde::where(['idcalendar' => $codigoCalendar])->first();
+                $detalleEnfunde = EnfundeDet::where(['idenfunde' => $enfunde->id])
+                    ->with(['seccion' => function ($query) {
+                        $query->select('id', 'idcabecera', 'has');
+                        $query->with(['cabSeccionLabor' => function ($query) {
+                            $query->select('id', 'idempleado');
+                        }]);
+                    }])->get();
+
+                $loteros_hacienda = Empleado::select('id', 'codigo', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres', 'idhacienda', 'idlabor')
+                    ->where([
+                        'idlabor' => 3,
+                        'HAC_EMPLEADOS.estado' => true
+                    ])
+                    ->with(['hacienda' => function ($query) {
+                        $query->select('id', 'detalle as descripcion');
+                    }])->paginate(5);
+
+                foreach ($loteros_hacienda as $lotero):
+                    $lotero['total'] = 0;
+                    $lotero['presente'] = false;
+                    $lotero['futuro'] = false;
+                    $lotero['enfunde'] = 0;
+
+                    foreach ($loteros as $activos):
+                        if ($activos->id == $lotero->id):
+                            $lotero['total'] = $activos->total;
+                        endif;
+                    endforeach;
+                    foreach ($detalleEnfunde as $enfundeLotero):
+                        if ($enfundeLotero->seccion->cabSeccionLabor->idempleado == $lotero->id) {
+                            $lotero['enfunde'] += $enfundeLotero->cant_pre + $enfundeLotero->cant_fut;
+                            if ($enfundeLotero->cant_pre > 0)
+                                $lotero['presente'] = true;
+                            if ($enfundeLotero->cant_fut > 0)
+                                $lotero['presente'] = true;
+                        }
+                    endforeach;
+                endforeach;
+
+                $loteros_pend = Empleado::select('id', 'codigo', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres')
+                    ->where([
+                        'idlabor' => 3,
+                        'HAC_EMPLEADOS.estado' => true
+                    ])->get();
+
+                $loteros_pendientes = array();
+                foreach ($loteros_pend as $loterop):
+                    $loterop['enfunde'] = 0;
+                    foreach ($detalleEnfunde as $enfundeLotero):
+                        if ($enfundeLotero->seccion->cabSeccionLabor->idempleado == $loterop->id) {
+                            $loterop['enfunde'] += $enfundeLotero->cant_pre + $enfundeLotero->cant_fut;
+                            if ($enfundeLotero->cant_pre > 0)
+                                $loterop['presente'] = true;
+                            if ($enfundeLotero->cant_fut > 0)
+                                $loterop['presente'] = true;
+                        }
+                    endforeach;
+                    if ($loterop['enfunde'] == 0) {
+                        $loteros_pendiente = Empleado::select('id', 'codigo', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres', 'idhacienda', 'idlabor')
+                            ->where([
+                                'id' => $loterop->id,
+                                'idlabor' => 3,
+                                'HAC_EMPLEADOS.estado' => true
+                            ])->get();
+                        array_push($loteros_pendientes, $loteros_pendiente);
+                    }
+                endforeach;
+
+                $this->out = $this->respuesta_json('success', 200, 'Loteros encontrados');
+                $this->out['dataArrayPendientes'] = $loteros_pendientes;
+                $this->out['dataArray'] = $loteros_hacienda;
+                return response()->json($this->out, $this->out['code']);
+            }
+
+            throw new \Exception('No hay loteros registrados');
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, $this->out['code']);
+        }
+
     }
 
     public function getEnfundeSemanal()
