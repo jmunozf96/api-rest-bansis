@@ -5,10 +5,12 @@ namespace App;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     use Notifiable;
+    use HasRoles;
 
     protected $table = 'SIS_USUARIOS';
 
@@ -20,7 +22,8 @@ class User extends Authenticatable
         'id', 'password', 'remember_token',
     ];
 
-    public function getDateFormat() {
+    public function getDateFormat()
+    {
         return config('constants.format_date');
     }
 }
