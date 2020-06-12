@@ -16,6 +16,7 @@ Route::get('/', function () {
 Route::post('/api/bansis/user/create', 'UserController@create');
 Route::post('/api/bansis/login', 'UserController@login');
 Route::post('/api/bansis/verifyToken', 'UserController@verifyToken');
+Route::post('/api/bansis/verifyModule', 'UserController@verifyModule');
 
 //Ruta resource para destinos de empacadora
 Route::resource('/api/emp_destino', 'Empacadora\EmpDestinoController')->except([

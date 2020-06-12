@@ -2,6 +2,8 @@
 
 namespace App\Helpers;
 
+use App\Helpers\Helper;
+use App\Perfil;
 use App\User;
 use Firebase\JWT\JWT;
 use Illuminate\Support\Facades\Hash;
@@ -9,9 +11,11 @@ use Illuminate\Support\Facades\Hash;
 class JwtAuth
 {
     public $key;
+    protected $servicios;
 
     public function __construct()
     {
+        $this->servicios = new Helper();
         $this->key = 'jdmfadmin12311022020';
     }
 
@@ -51,7 +55,8 @@ class JwtAuth
             $data = array(
                 'status' => 'success',
                 'code' => 200,
-                'token' => false
+                'token' => false,
+                'recursos' => $this->servicios->getRecursosUser($usuario->id)
             );
 
             if (is_null($getToken)) {
