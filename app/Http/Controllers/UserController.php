@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Helpers\Helper;
 use App\Helpers\JwtAuth;
+use App\Perfil;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use function foo\func;
 
 class UserController extends Controller
 {
@@ -131,12 +133,69 @@ class UserController extends Controller
 
     public function verifyToken(Request $request)
     {
-        $token = $request->header('Authorization');
-        $jwtauth = new JwtAuth();
-        $checkTocken = $jwtauth->checkToken($token);
-        return response()->json([
-            'logueado' => $checkTocken
-        ], 200);
+        try {
+            $json = $request->input('json');
+            $params = json_decode($json);
+
+            if (is_object($params)) {
+                $token = $request->header('Authorization');
+                $jwtauth = new JwtAuth();
+                $checkTocken = $jwtauth->checkToken($token);
+
+                $credentials = null;
+                $recursos = [];
+
+                if ($checkTocken && $params->credentials && $params->recursos) {
+                    $credentials = $jwtauth->checkToken($token, true);
+                    $recursos = $this->servicios->getRecursosUser($credentials->sub);
+                }
+
+                return response()->json([
+                    'credentials' => $credentials,
+                    'logueado' => $checkTocken,
+                    'recursos' => $recursos
+                ], 200);
+            }
+
+            throw new \Exception('No se encontraron parametros');
+        } catch (\Exception $ex) {
+            return response()->json($ex->getMessage(), 500);
+        }
+    }
+
+    public function verifyModule(Request $request)
+    {
+        $salida = [];
+        try {
+            $salida['status'] = false;
+
+            $json = $request->input('json');
+            $params = json_decode($json);
+
+            if (is_object($params) && !empty($params) && isset($params->modulo) && isset($params->rutaPadre)) {
+                $perfil = Perfil::where([
+                    'iduser' => $params->idempleado,
+                    'idrecurso' => $params->modulo
+                ])
+                    ->whereHas('recurso', function ($query) use ($params) {
+                        $query->where([
+                            'ruta' => $params->rutaPadre
+                        ]);
+                    })
+                    ->first();
+
+                if ($perfil) {
+                    $salida['status'] = true;
+                    return response()->json($salida, 200);
+                }else{
+                    throw new \Exception('No puede acceder a este modulo.');
+                }
+            }
+            throw new \Exception('No es un modulo de la base de datos');
+        } catch (\Exception $ex) {
+            $salida['message'] = $ex->getMessage();
+            return response()->json($salida, 200);
+        }
     }
 
     protected function response_array(...$data)

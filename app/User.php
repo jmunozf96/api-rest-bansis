@@ -26,4 +26,9 @@ class User extends Authenticatable
     {
         return config('constants.format_date');
     }
+
+    public function recursos()
+    {
+        $this->hasMany('App\Perfil', 'iduser', 'id');
+    }
 }

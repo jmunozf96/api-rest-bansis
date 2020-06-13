@@ -2,6 +2,9 @@
 
 namespace App\Helpers;
 
+use App\Perfil;
+use Illuminate\Support\Facades\DB;
+
 class Helper
 {
     public function eliminar_acentos($cadena)
@@ -48,7 +51,49 @@ class Helper
         return $cadena;
     }
 
-    public function extraerRepetidosArray($datos){
+    public function extraerRepetidosArray($datos)
+    {
 
+    }
+
+    public function getRecursosUser($id)
+    {
+        $recursos = Perfil::select('iduser', 'idrecurso')->where(['iduser' => $id])
+            ->with(['recurso' => function ($query) use ($id) {
+                $query->select('id', 'nombre', 'tipo', 'padreId', 'ruta');
+                $query->where(['estado' => true]);
+
+                $recursos = Perfil::select('iduser', 'idrecurso')->where(['iduser' => $id])->pluck('idrecurso');
+                $query->whereIn('id', $recursos);
+
+                $query->with(['recursoHijo' => function ($query) use ($id) {
+                    $query->select('id', 'nombre', 'tipo', 'padreId', 'ruta');
+                    $query->where(['estado' => true]);
+
+                    $recursos = Perfil::select('iduser', 'idrecurso')->where(['iduser' => $id])->pluck('idrecurso');
+                    $query->whereIn('id', $recursos);
+
+                    $query->with(['recursoHijo' => function ($query) use($id) {
+                        $query->select('id', 'nombre', 'tipo', 'padreId', 'ruta');
+                        $query->where(['estado' => true]);
+
+                        $recursos = Perfil::select('iduser', 'idrecurso')->where(['iduser' => $id])->pluck('idrecurso');
+                        $query->whereIn('id', $recursos);
+                    }]);
+                }]);
+            }])
+            ->whereHas('recurso', function ($query) {
+                $query->where([
+                    'padreId' => null,
+                    'estado' => true
+                ]);
+            })
+            ->get();
+
+        if (count($recursos) > 0) {
+            return $recursos;
+        }
+
+        return [];
     }
 }
