@@ -35,6 +35,7 @@ class EmpleadoController extends Controller
     public function getEmpleados(Request $request)
     {
         try {
+            $usuario = $request->get('user');
             $hacienda = $request->get('hacienda');
             $labor = $request->get('labor');
             $busqueda = $request->get('params');
@@ -53,6 +54,16 @@ class EmpleadoController extends Controller
 
             if (!empty($busqueda) && isset($busqueda)) {
                 $data = $data->where('nombres', 'like', "%{$busqueda}%")->orWhere('cedula', 'like', "%{$busqueda}%");
+            }
+
+            if (!empty($usuario) && isset($usuario)) {
+                //Para mostrar roles y sus usuarios
+                $data = $data->with(['user' => function ($query) {
+                    $query->with(['perfil' => function ($query) {
+                        $query->orderBy('idrecurso');
+                        $query->select('iduser', 'idrecurso');
+                    }]);
+                }]);
             }
 
             $data = $data->take($tamano)

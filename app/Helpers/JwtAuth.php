@@ -27,7 +27,11 @@ class JwtAuth
             'nick' => trim(str_replace(" ", "", $user))
         ])->where([
             'estado' => true
-        ])->first();
+        ])->with(['empleado' => function ($query) {
+            $query->select('id', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'idhacienda');
+        }])->with(['hacienda' => function ($query) {
+            $query->select('id', 'detalle as descripcion');
+        }])->first();
 
         $signup = false;
 
@@ -42,9 +46,9 @@ class JwtAuth
                 'sub' => $usuario->id,
                 'nick' => $usuario->nick,
                 'correo' => $usuario->correo,
-                'nombres' => $usuario->nombre,
-                'apellidos' => $usuario->apellido,
-                'idhacienda' => $usuario->idhacienda,
+                'nombres' => $usuario->empleado->nombre1 . ' ' . $usuario->empleado->nombre2,
+                'apellidos' => $usuario->empleado->apellido1 . ' ' . $usuario->empleado->apellido2,
+                'idhacienda' => $usuario->hacienda,
                 'iat' => time(),
                 'exp' => time() + (7 * 24 * 60 * 60)
             );

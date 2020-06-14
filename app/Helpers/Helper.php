@@ -88,6 +88,7 @@ class Helper
                     'estado' => true
                 ]);
             })
+            ->orderBy('idrecurso')
             ->get();
 
         if (count($recursos) > 0) {

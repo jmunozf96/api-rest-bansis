@@ -98,13 +98,17 @@ class EnfundeController extends Controller
                     ])->get();
 
                 $enfunde = Enfunde::where(['idcalendar' => $codigoCalendar])->first();
-                $detalleEnfunde = EnfundeDet::where(['idenfunde' => $enfunde->id])
-                    ->with(['seccion' => function ($query) {
-                        $query->select('id', 'idcabecera', 'has');
-                        $query->with(['cabSeccionLabor' => function ($query) {
-                            $query->select('id', 'idempleado');
-                        }]);
-                    }])->get();
+
+                $detalleEnfunde = array();
+                if (is_object($enfunde) && !empty($enfunde)) {
+                    $detalleEnfunde = EnfundeDet::where(['idenfunde' => $enfunde->id])
+                        ->with(['seccion' => function ($query) {
+                            $query->select('id', 'idcabecera', 'has');
+                            $query->with(['cabSeccionLabor' => function ($query) {
+                                $query->select('id', 'idempleado');
+                            }]);
+                        }])->get();
+                }
 
                 $loteros_hacienda = Empleado::select('id', 'codigo', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres', 'idhacienda', 'idlabor')
                     ->where([
@@ -126,15 +130,17 @@ class EnfundeController extends Controller
                             $lotero['total'] = $activos->total;
                         endif;
                     endforeach;
-                    foreach ($detalleEnfunde as $enfundeLotero):
-                        if ($enfundeLotero->seccion->cabSeccionLabor->idempleado == $lotero->id) {
-                            $lotero['enfunde'] += $enfundeLotero->cant_pre + $enfundeLotero->cant_fut;
-                            if ($enfundeLotero->cant_pre > 0)
-                                $lotero['presente'] = true;
-                            if ($enfundeLotero->cant_fut > 0)
-                                $lotero['presente'] = true;
-                        }
-                    endforeach;
+                    if (count($detalleEnfunde) > 0) {
+                        foreach ($detalleEnfunde as $enfundeLotero):
+                            if ($enfundeLotero->seccion->cabSeccionLabor->idempleado == $lotero->id) {
+                                $lotero['enfunde'] += $enfundeLotero->cant_pre + $enfundeLotero->cant_fut;
+                                if ($enfundeLotero->cant_pre > 0)
+                                    $lotero['presente'] = true;
+                                if ($enfundeLotero->cant_fut > 0)
+                                    $lotero['presente'] = true;
+                            }
+                        endforeach;
+                    }
                 endforeach;
 
                 $loteros_pend = Empleado::select('id', 'codigo', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres')

@@ -23,4 +23,9 @@ class Empleado extends BaseModel
     {
         return $this->hasMany('App\Models\Hacienda\InventarioEmpleado', 'idempleado', 'id');
     }
+
+    public function user()
+    {
+        return $this->hasOne('App\User', 'idempleado', 'id');
+    }
 }

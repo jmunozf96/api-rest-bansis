@@ -2,9 +2,10 @@
 
 namespace App;
 
+use App\Models\BaseModel;
 use Illuminate\Database\Eloquent\Model;
 
-class Perfil extends Model
+class Perfil extends BaseModel
 {
     protected $table = 'SIS_PERFIL_USUARIOS';
 

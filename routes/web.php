@@ -14,9 +14,13 @@ Route::get('/', function () {
 
 //Rutas para acceso y configuracion de usuarios
 Route::post('/api/bansis/user/create', 'UserController@create');
+Route::post('/api/bansis/user/asignModule', 'UserController@asignRecursos');
 Route::post('/api/bansis/login', 'UserController@login');
 Route::post('/api/bansis/verifyToken', 'UserController@verifyToken');
 Route::post('/api/bansis/verifyModule', 'UserController@verifyModule');
+
+//Ruta para los recursos del sistema
+Route::get('api/bansis/recursos', 'RecursosController@index');
 
 //Ruta resource para destinos de empacadora
 Route::resource('/api/emp_destino', 'Empacadora\EmpDestinoController')->except([

@@ -19,16 +19,33 @@ class User extends Authenticatable
     ];
 
     protected $hidden = [
-        'id', 'password', 'remember_token',
+        'password', 'remember_token',
     ];
+
+    public function empleado()
+    {
+        return $this->hasOne('App\Models\Hacienda\Empleado', 'id', 'idempleado');
+    }
+
+    public function hacienda()
+    {
+        return $this->hasOne('App\Models\Hacienda\Hacienda', 'id', 'idhacienda');
+    }
 
     public function getDateFormat()
     {
         return config('constants.format_date');
     }
 
+    public function perfil()
+    {
+        return $this->hasMany('App\Perfil', 'iduser', 'id');
+    }
+
     public function recursos()
     {
         $this->hasMany('App\Perfil', 'iduser', 'id');
     }
+
+    public $timestamps = false;
 }

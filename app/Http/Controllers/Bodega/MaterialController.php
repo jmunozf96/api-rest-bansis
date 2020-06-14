@@ -48,19 +48,18 @@ class MaterialController extends Controller
             $busqueda = $request->get('params');
             $tamano = $request->get('size') ?? 5;
 
-            $data = Material::selectRaw("id, codigo, descripcion, stock");
+            $data = Material::selectRaw("id, codigo, descripcion, stock, idbodega, idgrupo");
 
-
-            if (!empty($busqueda) && isset($busqueda)) {
-                $data = $data->where('descripcion', 'like', "%{$busqueda}%")->orWhere('codigo', 'like', "%{$busqueda}%");
+            if (!empty($bodega) && isset($bodega)) {
+                $data = $data->where('idbodega', $bodega);
             }
 
             if (!empty($grupo) && isset($grupo)) {
                 $data = $data->where('idgrupo', $grupo);
             }
 
-            if (!empty($bodega) && isset($bodega)) {
-                $data = $data->where('idbodega', $bodega);
+            if (!empty($busqueda) && isset($busqueda)) {
+                $data = $data->where('descripcion', 'like', "%{$busqueda}%")->orWhere('codigo', 'like', "%{$busqueda}%");
             }
 
             $data = $data->take($tamano)

@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Helpers\Helper;
 use App\Helpers\JwtAuth;
+use App\Models\Hacienda\Empleado;
 use App\Perfil;
+use App\Recurso;
 use App\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use function foo\func;
@@ -31,37 +35,48 @@ class UserController extends Controller
         if (is_object($params) && count($params_array) > 0) {
 
             $validacion = Validator::make($params_array, [
+                'id' => 'required',
                 'nombre' => 'required|regex:/^[\pL\s\-]+$/u',
                 'apellido' => 'required|regex:/^[\pL\s\-]+$/u',
-                'correo' => 'required|email|unique:SIS_Usuarios',
-                'contraseña' => 'required',
+                'correo' => 'required|email',
+                'password' => 'required',
                 'descripcion' => 'required'
             ]);
+
+            //|unique:SIS_Usuarios
 
             if ($validacion->fails()) {
                 $this->respuesta['message'] = 'Los datos enviados no son correctos';
                 $this->respuesta['error'] = $validacion->errors();
             } else {
-                //$password_hash = hash('sha256', $params->contraseña);
-                $password_hash = Hash::make($params->contraseña, [
+                $usuario = User::where('idempleado', $params->id)->first();
+                $password_hash = Hash::make($params->password, [
                     'memory' => 1024,
                     'time' => 2,
                     'threads' => 2,
                 ]);
-
-                $usuario = new User();
-                $usuario->nombre = $params->nombre;
-                $usuario->apellido = $params->apellido;
-                $usuario->correo = $params->correo;
-                $usuario->nick = $this->generarNick($params->nombre, $params->apellido);
-                $usuario->contraseña = $password_hash;
-                $usuario->descripcion = $params->descripcion;
-                //$usuario->idhacienda = $params->idhacienda;
-                $usuario->estado = true;
-
+                if (!$usuario) {
+                    //$password_hash = hash('sha256', $params->contraseña);
+                    $usuario = new User();
+                    $usuario->idempleado = $params->id;
+                    $usuario->correo = $params->correo;
+                    $usuario->nick = $this->generarNick($params->nombre, $params->apellido);
+                    $usuario->contraseña = $password_hash;
+                    $usuario->descripcion = strtoupper($params->descripcion);
+                    $usuario->idhacienda = $params->idhacienda;
+                    $usuario->estado = true;
+                    $usuario->created_at = Carbon::now()->format(config('constants.format_date'));
+                    $this->respuesta['message'] = 'Usuario registrado correctamente';
+                } else {
+                    $usuario->correo = $params->correo;
+                    $usuario->contraseña = $password_hash;
+                    $usuario->descripcion = strtoupper($params->descripcion);
+                    $this->respuesta['message'] = 'Usuario actualizado correctamente';
+                }
+                $this->respuesta['code'] = 200;
+                $this->respuesta['status'] = 'success';
+                $usuario->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $usuario->save();
-
-                $this->respuesta['message'] = 'Usuario registrado correctamente';
                 $this->respuesta['nick'] = $usuario->nick;
                 $this->respuesta['user'] = $usuario;
             }
@@ -70,6 +85,52 @@ class UserController extends Controller
         }
 
         return response()->json($this->respuesta, 200);
+    }
+
+    public function asignRecursos(Request $request)
+    {
+        try {
+            $json = $request->input('json');
+            $params = json_decode($json);
+            $params_array = json_decode($json, true);
+
+            if (is_object($params) && !empty($params)) {
+                $validacion = Validator::make($params_array, [
+                    'usuario' => 'required',
+                    'roles' => 'required'
+                ]);
+
+                if (!$validacion->fails()) {
+                    DB::beginTransaction();
+                    $usuario = User::where(['idempleado' => $params_array['usuario']['id']])->first();
+                    Perfil::where(['iduser' => $usuario->id])->delete();
+                    foreach ($params_array['roles'] as $rol):
+                        $existe_rol = Perfil::where([
+                            'iduser' => $usuario->id,
+                            'idrecurso' => $rol,
+                        ])->first();
+
+                        if (!is_object($existe_rol)) {
+                            $perfil = new Perfil();
+                            $perfil->iduser = $usuario->id;
+                            $perfil->idrecurso = $rol;
+                            $perfil->created_at = Carbon::now()->format(config('constants.format_date'));
+                            $perfil->updated_at = Carbon::now()->format(config('constants.format_date'));
+                            $perfil->save();
+                        }
+                    endforeach;
+                    DB::commit();
+                    $this->respuesta = $this->response_array('success', 200, 'Modulos asignados correctamente');
+                    return response()->json($this->respuesta, 200);
+                }
+                throw new \Exception('No se han recibido roles de usuario');
+            }
+            throw new \Exception('No se han recibido parametros.');
+        } catch (\Exception $ex) {
+            DB::rollBack();
+            $this->respuesta['message'] = $ex->getMessage();
+            return response()->json($this->respuesta, 500);
+        }
     }
 
     public function login(Request $request)
@@ -145,15 +206,18 @@ class UserController extends Controller
                 $credentials = null;
                 $recursos = [];
 
-                if ($checkTocken && $params->credentials && $params->recursos) {
-                    $credentials = $jwtauth->checkToken($token, true);
-                    $recursos = $this->servicios->getRecursosUser($credentials->sub);
+                if ($checkTocken) {
+                    if ($params->credentials)
+                        $credentials = $jwtauth->checkToken($token, true);
+                    if ($params->recursos)
+                        $recursos = $this->servicios->getRecursosUser($jwtauth->checkToken($token, true)->sub);
                 }
 
                 return response()->json([
                     'credentials' => $credentials,
                     'logueado' => $checkTocken,
-                    'recursos' => $recursos
+                    'recursos' => $recursos,
+                    'sub' => $jwtauth->checkToken($token, true)->sub
                 ], 200);
             }
 
@@ -187,7 +251,7 @@ class UserController extends Controller
                 if ($perfil) {
                     $salida['status'] = true;
                     return response()->json($salida, 200);
-                }else{
+                } else {
                     throw new \Exception('No puede acceder a este modulo.');
                 }
             }
