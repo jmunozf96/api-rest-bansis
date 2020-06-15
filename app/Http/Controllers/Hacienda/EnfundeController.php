@@ -24,7 +24,8 @@ class EnfundeController extends Controller
     public function __construct()
     {
         $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados', 'getLoteros',
-            'getEnfundeDetalle', 'getEnfundeSemanal', 'getEnfundeSemanalDetail', 'closeEnfundeSemanal']]);
+            'getEnfundeDetalle', 'getEnfundeSemanal', 'getEnfundeSeccion',
+            'getEnfundeSemanalDetail', 'closeEnfundeSemanal']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -79,10 +80,21 @@ class EnfundeController extends Controller
     {
         try {
             $codigoCalendar = $request->get('calendario');
+            $hacienda = $request->get('hacienda');
+            $empleado = $request->get('empleado');
 
             $loteros = Empleado::where([
                 'idlabor' => 3
-            ])->get();
+            ]);
+
+            if (!empty($empleado) && isset($empleado) && !is_null($empleado)) {
+                $loteros = $loteros->where([
+                    'id' => $empleado,
+                    'idhacienda' => $hacienda
+                ]);
+            }
+
+            $loteros = $loteros->get();
 
             $this->out['dataArray'] = [];
 
@@ -91,11 +103,19 @@ class EnfundeController extends Controller
                     ->leftJoin('HAC_INVENTARIO_EMPLEADO as inventario', 'inventario.idempleado', 'HAC_EMPLEADOS.id')
                     ->leftJoin('BOD_MATERIALES as material', 'material.id', 'inventario.idmaterial')
                     ->where('material.descripcion', 'like', '%funda%')
+                    ->where('inventario.idcalendar', $codigoCalendar)
                     ->select('HAC_EMPLEADOS.id', 'HAC_EMPLEADOS.codigo', DB::raw('ISNULL(SUM(inventario.tot_egreso), 0) As total'))
                     ->where([
                         'idlabor' => 3,
+                        'idhacienda' => $hacienda,
                         'HAC_EMPLEADOS.estado' => true
-                    ])->get();
+                    ]);
+
+                if (!empty($empleado) && isset($empleado) && !is_null($empleado)) {
+                    $loteros = $loteros->where('HAC_EMPLEADOS.id', $empleado);
+                }
+
+                $loteros = $loteros->get();
 
                 $enfunde = Enfunde::where(['idcalendar' => $codigoCalendar])->first();
 
@@ -113,11 +133,18 @@ class EnfundeController extends Controller
                 $loteros_hacienda = Empleado::select('id', 'codigo', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres', 'idhacienda', 'idlabor')
                     ->where([
                         'idlabor' => 3,
-                        'HAC_EMPLEADOS.estado' => true
+                        'HAC_EMPLEADOS.estado' => true,
+                        'idhacienda' => $hacienda
                     ])
                     ->with(['hacienda' => function ($query) {
                         $query->select('id', 'detalle as descripcion');
-                    }])->paginate(5);
+                    }]);
+
+                if (!empty($empleado) && isset($empleado) && !is_null($empleado)) {
+                    $loteros_hacienda = $loteros_hacienda->where('HAC_EMPLEADOS.id', $empleado);
+                }
+
+                $loteros_hacienda = $loteros_hacienda->paginate(5);
 
                 foreach ($loteros_hacienda as $lotero):
                     $lotero['total'] = 0;
@@ -146,7 +173,8 @@ class EnfundeController extends Controller
                 $loteros_pend = Empleado::select('id', 'codigo', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres')
                     ->where([
                         'idlabor' => 3,
-                        'HAC_EMPLEADOS.estado' => true
+                        'HAC_EMPLEADOS.estado' => true,
+                        'idhacienda' => $hacienda
                     ])->get();
 
                 $loteros_pendientes = array();
@@ -221,7 +249,7 @@ class EnfundeController extends Controller
     {
         try {
             $enfundeSemanal = Enfunde::groupBy('calendario.periodo',
-                'calendario.semana', 'calendario.color',
+                'calendario.semana', 'calendario.codigo', 'calendario.color',
                 'HAC_ENFUNDES.idhacienda', 'HAC_ENFUNDES.cerrado', 'HAC_ENFUNDES.id')
                 ->orderBy('HAC_ENFUNDES.idhacienda')
                 ->rightJoin('SIS_CALENDARIO_DOLE as calendario', [
@@ -231,7 +259,7 @@ class EnfundeController extends Controller
                 ->join('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
                 ->join('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
                 ->select('HAC_ENFUNDES.id', 'calendario.color',
-                    'calendario.periodo', 'calendario.semana', 'HAC_ENFUNDES.idhacienda',
+                    'calendario.periodo', 'calendario.semana', 'calendario.codigo', 'HAC_ENFUNDES.idhacienda',
                     DB::raw('ISNULL(SUM(detalle.cant_pre) + SUM(detalle.cant_fut), 0) As total'),
                     DB::raw('ISNULL(SUM(detalle.cant_desb), 0) As desbunche'),
                     DB::raw('ISNULL(SUM(seccion.has), 0) As has'), 'HAC_ENFUNDES.cerrado')
@@ -264,6 +292,65 @@ class EnfundeController extends Controller
         }
     }
 
+    public function getEnfundeSeccion(Request $request)
+    {
+        try {
+            $seccion = $request->get('seccion');
+            $calendario = $request->get('calendario');
+
+            if (!empty($seccion) && !empty($calendario) && isset($seccion) && isset($calendario)
+                && !is_null($calendario) && !is_null($seccion)) {
+                $enfunde = Enfunde::where(['idcalendar' => $calendario])->first();
+                if (is_object($enfunde)) {
+                    $seccionLote = LoteSeccionLaborEmpDet::select('id', 'idcabecera', 'idlote_sec', 'has')
+                        ->where(['idlote_sec' => $seccion])
+                        ->with(['seccionLote' => function ($query) use ($seccion) {
+                            $query->select('id', 'idlote', 'alias', 'has', 'fecha_siembra', 'variedad', 'tipo_variedad', 'tipo_suelo');
+                            $query->where('id', $seccion);
+                        }])
+                        ->first();
+                    $detalle_enfunde = EnfundeDet::select('id', 'idenfunde', 'idseccion', 'cant_pre', 'cant_fut', 'reelevo', 'idreelevo')
+                        ->where('idenfunde', $enfunde->id)
+                        ->with(['seccion' => function ($query) use ($seccion) {
+                            $query->select('id', 'idcabecera', 'idlote_sec', 'has');
+                            $query->with(['seccionLote' => function ($query) use ($seccion) {
+                                $query->select('id', 'idlote', 'alias', 'has');
+                                $query->where('id', $seccion);
+                            }]);
+                            $query->with(['cabSeccionLabor' => function ($query) {
+                                $query->select('id', 'idempleado', 'has');
+                                $query->with(['empleado' => function ($query) {
+                                    $query->select('id', 'codigo', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres');
+                                }]);
+                            }]);
+                        }])
+                        ->whereHas('seccion', function ($query) use ($seccion) {
+                            $query->whereHas('seccionLote', function ($query) use ($seccion) {
+                                $query->where('id', $seccion);
+                            });
+                        })
+                        ->get();
+
+                    if (is_object($seccionLote)) {
+                        if (count($detalle_enfunde) > 0) {
+                            $this->out = $this->respuesta_json('success', 200, 'Datos encontrados con exito');
+                            $this->out['dataArray'] = [
+                                'seccion' => $seccionLote,
+                                'detalleSemana' => $detalle_enfunde
+                            ];
+                            return response()->json($this->out, 200);
+                        }
+                    }
+
+                }
+                throw new \Exception('No se han encontrado datos de enfunde para esta semana');
+            }
+            throw new \Exception('No se han recibido parametros');
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
 
     public function store(Request $request)
     {
