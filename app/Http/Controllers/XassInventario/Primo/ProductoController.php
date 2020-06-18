@@ -26,17 +26,16 @@ class ProductoController extends Controller
 
             $data = Producto::selectRaw("id_fila, RTRIM(codigo) as codigo, nombre, RTRIM(nombre + ' - STOCK: '+ convert(varchar,CAST(stock AS DECIMAL(10,2)))) as descripcion, unidad, grupo, bodegacompra, convert(varchar,CAST(stock AS DECIMAL(10,2))) as stock");
 
-
-            if (!empty($busqueda) && isset($busqueda)) {
-                $data = $data->where('nombre', 'like', "%{$busqueda}%");
-            }
-
             if (!empty($grupo) && isset($grupo)) {
                 $data = $data->where('grupo', $grupo);
             }
 
             if (!empty($bodega) && isset($bodega)) {
                 $data = $data->where('bodegacompra', $bodega);
+            }
+
+            if (!empty($busqueda) && isset($busqueda)) {
+                $data = $data->where('nombre', 'like', "%{$busqueda}%");
             }
 
             $data = $data->take($tamano)
