@@ -36,13 +36,15 @@ class LoteSeccionController extends Controller
                 ->whereHas('lote', function ($query) use ($hacienda) {
                     $query->select('id', 'idhacienda');
                     $query->where(['idhacienda' => $hacienda]);
+                    $query->where(['estado' => true]);
                 });
 
             if (!is_null($lote)) {
                 $lote = $lote->with(['lote' => function ($query) use ($hacienda) {
                     $query->select('id', 'identificacion', 'idhacienda', 'has', 'estado');
                     $query->where(['idhacienda' => $hacienda]);
-                }])
+                    $query->where(['estado' => true]);
+                }])->where(['HAC_LOTES_SECCION.estado' => true])
                     ->orderByRaw("(right('0' + lote.identificacion,2) + HAC_LOTES_SECCION.descripcion + ' - has: ' + CONVERT(varchar, HAC_LOTES_SECCION.has))")
                     ->get();
             }
