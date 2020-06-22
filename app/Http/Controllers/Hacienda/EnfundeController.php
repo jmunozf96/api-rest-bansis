@@ -23,9 +23,13 @@ class EnfundeController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'getEmpleados', 'getLoteros',
-            'getEnfundeDetalle', 'getEnfundeSemanal', 'getEnfundeSeccion',
-            'getEnfundeSemanalDetail', 'closeEnfundeSemanal']]);
+        $this->middleware('api.auth', ['except' => [
+            'index', 'show', 'getEmpleados', 'getLoteros',
+            'getEnfundeDetalle', 'getEnfundeSemanal',
+            'getEnfundeSeccion', 'getEnfundeSemanalDetail',
+            'closeEnfundeSemanal', 'informeSemanalEnfunde',
+            'informeSemanalEnfundeMaterial','informeSemanalEnfundeEmpleados'
+        ]]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -797,12 +801,10 @@ class EnfundeController extends Controller
         //
     }
 
-
     public function update(Request $request, $id)
     {
         //
     }
-
 
     public function destroy($id)
     {
@@ -916,6 +918,74 @@ class EnfundeController extends Controller
             DB::rollBack();
             $this->out['message'] = $ex->getMessage();
             return response()->json($this->out, $this->out['code']);
+        }
+    }
+
+    public function informeSemanalEnfunde(Request $request)
+    {
+        try {
+            $enfunde = Enfunde::groupBy('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'HAC_ENFUNDES.idhacienda',
+                'calendario.semana', 'calendario.periodo', 'calendario.color', 'HAC_ENFUNDES.fecha')
+                ->rightJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
+                ->leftJoin('SIS_CALENDARIO_DOLE as calendario', 'calendario.fecha', 'HAC_ENFUNDES.fecha')
+                ->select('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'HAC_ENFUNDES.idhacienda',
+                    'calendario.semana', 'calendario.periodo',
+                    'calendario.color as colPresente',
+                    DB::raw('(SELECT color FROM SIS_CALENDARIO_DOLE WHERE fecha = DATEADD(DAY, 7, HAC_ENFUNDES.fecha)) as colFuturo'),
+                    DB::raw('sum(detalle.cant_pre) presente'),
+                    DB::raw('sum(detalle.cant_fut) futuro'),
+                    DB::raw('sum(detalle.cant_desb) desbunche')
+                )
+                ->with(['hacienda' => function ($query) {
+                    $query->select('id', 'detalle');
+                }])
+                ->paginate(10);
+
+
+            return response()->json($enfunde, 200);
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function informeSemanalEnfundeMaterial(Request $request)
+    {
+        try {
+            $idenfunde = $request->get('id');
+            $materiales = Enfunde::groupBy('HAC_ENFUNDES.id', 'material.codigo', 'material.descripcion')
+                ->rightJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
+                ->rightJoin('BOD_MATERIALES as material', 'material.id', 'detalle.idmaterial')
+                ->select('HAC_ENFUNDES.id', 'material.codigo', 'material.descripcion',
+                    DB::raw('sum(detalle.cant_pre) as presente'),
+                    DB::raw('sum(detalle.cant_fut) as futuro'))
+                ->where(['HAC_ENFUNDES.id' => $idenfunde])
+                ->get();
+            return response()->json($materiales, 200);
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function informeSemanalEnfundeEmpleados(Request $request)
+    {
+        try {
+            $idenfunde = $request->get('id');
+            $empleados = Enfunde::groupBy('HAC_ENFUNDES.id', 'empleado.codigo', 'empleado.nombres')
+                ->rightJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
+                ->rightJoin('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
+                ->rightJoin('HAC_LOTSEC_LABEMPLEADO as cabeceraSeccion', 'cabeceraSeccion.id', 'seccion.idcabecera')
+                ->rightJoin('HAC_EMPLEADOS as empleado', 'empleado.id', 'cabeceraSeccion.idempleado')
+                ->select('HAC_ENFUNDES.id', 'empleado.codigo', 'empleado.nombres',
+                    DB::raw('sum(detalle.cant_pre) as presente'),
+                    DB::raw('sum(detalle.cant_fut) as futuro'))
+                ->where(['HAC_ENFUNDES.id' => $idenfunde])
+                ->get();
+            return response()->json($empleados, 200);
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, 500);
         }
     }
 
