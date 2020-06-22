@@ -64,13 +64,14 @@ class EgresoBodegaController extends Controller
             if (!is_null($egresos) && !empty($egresos) && count($egresos) > 0) {
                 $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
                 $this->out['dataArray'] = $egresos;
+                return response()->json($this->out, $this->out['code']);
             } else {
-                $this->out['message'] = 'Lo sentimos!, No se han encontrado datos.';
+                throw new \Exception('Lo sentimos!, No se han encontrado datos.');
             }
         } catch (\Exception $exception) {
             $this->out['message'] = $exception->getMessage();
+            return response()->json($this->out, $this->out['code']);
         }
-        return response()->json($this->out, $this->out['code']);
     }
 
     public function store(Request $request)
@@ -179,27 +180,27 @@ class EgresoBodegaController extends Controller
 
             if (is_object($existe_detalle)) {
                 if (!$this->testMovimientosDetalle($existe_detalle)) {
-                    $this->storeInventario($cabecera, $detalle, true, $existe_detalle->cantidad);
-
-                    if (intval($existe_detalle->cantidad) !== intval($detalle['cantidad'])) {
-                        $existe_detalle->cantidad = $detalle['cantidad'];
-                        $existe_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
-                        $existe_detalle->update();
+                    if ($this->storeInventario($cabecera, $detalle, true, $existe_detalle->cantidad)) {
+                        if (intval($existe_detalle->cantidad) !== intval($detalle['cantidad'])) {
+                            $existe_detalle->cantidad = $detalle['cantidad'];
+                            $existe_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
+                            $existe_detalle->update();
+                        }
                     }
                 }
             } else {
-                $this->storeInventario($cabecera, $detalle, false);
-
-                $egreso_detalle = new EgresoBodegaDetalle();
-                $egreso_detalle->idegreso = $cabecera['id'];
-                $egreso_detalle->idmaterial = $detalle['idmaterial'];
-                //Añadir el movimiento que se esta realizando y llamar a funcion que va a identificar el tipo
-                //de movimiento y ejecutara una accion respectiva
-                $egreso_detalle->fecha_salida = $detalle['time'];
-                $egreso_detalle->cantidad = $detalle['cantidad'];
-                $egreso_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
-                $egreso_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
-                $egreso_detalle->save();
+                if ($this->storeInventario($cabecera, $detalle, false)) {
+                    $egreso_detalle = new EgresoBodegaDetalle();
+                    $egreso_detalle->idegreso = $cabecera['id'];
+                    $egreso_detalle->idmaterial = $detalle['idmaterial'];
+                    //Añadir el movimiento que se esta realizando y llamar a funcion que va a identificar el tipo
+                    //de movimiento y ejecutara una accion respectiva
+                    $egreso_detalle->fecha_salida = $detalle['time'];
+                    $egreso_detalle->cantidad = $detalle['cantidad'];
+                    $egreso_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
+                    $egreso_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
+                    $egreso_detalle->save();
+                }
             }
             return true;
         } catch (\Exception $ex) {
@@ -219,8 +220,7 @@ class EgresoBodegaController extends Controller
             $egreso_inventario->cantidad = $detalle['cantidad'];
             $egreso_inventario->edicion = $edit;
             $egreso_inventario->cantidad_old = $cantidad_old;
-            $this->saveInventario($egreso_inventario);
-            return true;
+            return $this->saveInventario($egreso_inventario);
         } catch (\Exception $ex) {
             return false;
         }
@@ -259,10 +259,15 @@ class EgresoBodegaController extends Controller
                 }
 
                 $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
-                $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
-                $inventario->save();
-                $material_stock->save();
-                return true;
+                if ($inventario->sld_final >= 0) {
+                    $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
+                    $inventario->save();
+                    $material_stock->save();
+                    return true;
+                } else {
+                    return false;
+                }
+
             }
             return false;
         } catch (\Exception $ex) {
@@ -614,11 +619,15 @@ class EgresoBodegaController extends Controller
             $detalle_egreso = EgresoBodegaDetalle::where(['id' => $id, 'movimiento' => 'EGRE-ART'])->first();
             if (is_object($detalle_egreso)) {
                 DB::beginTransaction();
+
+                $status = false;
+
                 //Si este material ha tenido movimientos
                 if ($this->testMovimientosDetalle($detalle_egreso))
                     throw new \Exception('No se puede procesar esta solicitud, se ha transferido un saldo de este material.');
 
-                $detalle_egreso->delete();
+                $status = $detalle_egreso->delete();
+
                 $egresos = EgresoBodegaDetalle::where('idegreso', $detalle_egreso->idegreso)->get();
                 if (count($egresos) == 0)
                     $eliminar_cabecera = true;
@@ -638,9 +647,8 @@ class EgresoBodegaController extends Controller
                     throw new \Exception('No se puede eliminar este movimiento');
                 }
 
-                $inventario->save();
+                $status = $inventario->save();
 
-                $status = false;
 
                 if (intval($inventario->sld_final) === 0)
                     $status = $inventario->delete();
@@ -649,11 +657,11 @@ class EgresoBodegaController extends Controller
                     throw new \Exception('No se puede eliminar el registro.');
                 }
 
-                if ($eliminar_cabecera)
+                if ($eliminar_cabecera) {
                     $status = $egreso->delete();
-
-                if (!$status) {
-                    throw new \Exception('No se puede eliminar el registro.');
+                    if (!$status) {
+                        throw new \Exception('No se puede eliminar el registro.');
+                    }
                 }
 
                 $material_stock = Material::where(['id' => $detalle_egreso->idmaterial])->first();

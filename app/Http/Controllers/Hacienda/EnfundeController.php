@@ -164,7 +164,7 @@ class EnfundeController extends Controller
                                 if ($enfundeLotero->cant_pre > 0)
                                     $lotero['presente'] = true;
                                 if ($enfundeLotero->cant_fut > 0)
-                                    $lotero['presente'] = true;
+                                    $lotero['futuro'] = true;
                             }
                         endforeach;
                     }
@@ -214,9 +214,11 @@ class EnfundeController extends Controller
 
     }
 
-    public function getEnfundeSemanal()
+    public function getEnfundeSemanal(Request $request)
     {
         try {
+            $hacienda = $request->get('hacienda');
+
             $enfundeSemanal = Enfunde::groupBy('calendario.periodo',
                 'calendario.semana', 'calendario.color',
                 'HAC_ENFUNDES.idhacienda', 'HAC_ENFUNDES.fecha', 'HAC_ENFUNDES.cerrado', 'HAC_ENFUNDES.id')
@@ -234,8 +236,14 @@ class EnfundeController extends Controller
                     DB::raw('ISNULL(SUM(detalle.cant_pre) + SUM(detalle.cant_fut), 0) As total'),
                     DB::raw('ISNULL(SUM(detalle.cant_desb), 0) As desbunche'),
                     DB::raw('ISNULL(SUM(seccion.has), 0) As has'), 'HAC_ENFUNDES.cerrado')
-                ->with('hacienda')
-                ->paginate('7');
+                ->with('hacienda');
+
+            if (!empty($hacienda)) {
+                $enfundeSemanal = $enfundeSemanal->where(['HAC_ENFUNDES.idhacienda' => $hacienda]);
+            }
+
+            $enfundeSemanal = $enfundeSemanal->paginate('7');
+
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados');
             $this->out['dataArray'] = $enfundeSemanal;
             return response()->json($this->out, 200);
@@ -606,51 +614,58 @@ class EnfundeController extends Controller
                 $fecha_fut = date(config('constants.date'), $futuro);
                 $calendario_fut = Calendario::where('fecha', $fecha_fut)->first();
 
+                $no_cierra = array();
+
                 foreach ($enfunde_detalle as $detalle):
-                    $idempleado = $detalle->seccion->cabSeccionLabor->idempleado;
-
-                    if ($detalle->reelevo) {
-                        $idempleado = $detalle->idreelevo;
-                    }
-
-                    $inventario = InventarioEmpleado::where([
-                        'idempleado' => $idempleado,
-                        'idmaterial' => $detalle->idmaterial,
-                        'idcalendar' => $enfunde->idcalendar
-                    ])->first();
-
-                    if (is_object($inventario)) {
-                        $inventario->estado = false;
-                        $inventario->save();
-
-                        $saldo_final = $inventario->sld_final;
-
-                        $inventario_empleado = InventarioEmpleado::where([
+                    if ($detalle->cant_pre > 0 || $detalle->cant_fut > 0) {
+                        $idempleado = $detalle->seccion->cabSeccionLabor->idempleado;
+                        if ($detalle->reelevo) {
+                            $idempleado = $detalle->idreelevo;
+                        }
+                        $inventario = InventarioEmpleado::where([
                             'idempleado' => $idempleado,
                             'idmaterial' => $detalle->idmaterial,
-                            'idcalendar' => $calendario_fut->codigo
+                            'idcalendar' => $enfunde->idcalendar
                         ])->first();
+                        if (is_object($inventario)) {
+                            $inventario->estado = false;
+                            $inventario->save();
 
-                        if (!is_object($inventario_empleado)) {
-                            $inventario_empleado = new InventarioEmpleado();
-                            $inventario_empleado->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
-                            $inventario_empleado->idempleado = $idempleado;
-                            $inventario_empleado->idmaterial = $detalle->idmaterial;
-                            $inventario_empleado->idcalendar = $calendario_fut->codigo;
-                            $inventario_empleado->tot_egreso = 0;
-                            $inventario_empleado->tot_devolucion = 0;
-                            $inventario_empleado->created_at = Carbon::now()->format(config('constants.format_date'));
+                            $saldo_final = $inventario->sld_final;
+                            if ($saldo_final > 0) {
+                                $inventario_empleado = InventarioEmpleado::where([
+                                    'idempleado' => $idempleado,
+                                    'idmaterial' => $detalle->idmaterial,
+                                    'idcalendar' => $calendario_fut->codigo
+                                ])->first();
+
+                                if (!is_object($inventario_empleado)) {
+                                    $inventario_empleado = new InventarioEmpleado();
+                                    $inventario_empleado->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
+                                    $inventario_empleado->idempleado = $idempleado;
+                                    $inventario_empleado->idmaterial = $detalle->idmaterial;
+                                    $inventario_empleado->idcalendar = $calendario_fut->codigo;
+                                    $inventario_empleado->tot_egreso = 0;
+                                    $inventario_empleado->tot_devolucion = 0;
+                                    $inventario_empleado->created_at = Carbon::now()->format(config('constants.format_date'));
+                                }
+
+                                $inventario_empleado->sld_inicial = $saldo_final;
+                                $inventario_empleado->sld_final = (+$inventario_empleado->sld_inicial + +$inventario_empleado->tot_egreso) - $inventario_empleado->tot_devolucion;
+                                $inventario_empleado->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                $inventario_empleado->save();
+                            }
                         }
-
-                        $inventario_empleado->sld_inicial = $saldo_final;
-                        $inventario_empleado->sld_final = (+$inventario_empleado->sld_inicial + +$inventario_empleado->tot_egreso) - $inventario_empleado->tot_devolucion;
-                        $inventario_empleado->updated_at = Carbon::now()->format(config('constants.format_date'));
-                        $inventario_empleado->save();
+                    } else {
+                        array_push($no_cierra, true);
                     }
                 endforeach;
 
-                $enfunde->futuro = true;
-                $enfunde->cerrado = true;
+                if (count($no_cierra) == 0) {
+                    $enfunde->futuro = true;
+                    $enfunde->cerrado += 1;
+                }
+
                 $enfunde->save();
 
                 DB::commit();

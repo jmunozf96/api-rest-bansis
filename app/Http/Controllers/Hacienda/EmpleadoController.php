@@ -20,7 +20,8 @@ class EmpleadoController extends Controller
 
     public function index()
     {
-        $empleados = Empleado::with('hacienda', 'labor')->orderBy('updated_at', 'DESC')->paginate(7);
+        $empleados = Empleado::with('hacienda', 'labor')
+            ->orderBy('updated_at', 'DESC')->paginate(7);
 
         if (!is_null($empleados) && !empty($empleados)) {
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
