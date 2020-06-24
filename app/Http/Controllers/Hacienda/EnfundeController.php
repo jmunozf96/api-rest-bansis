@@ -452,11 +452,11 @@ class EnfundeController extends Controller
 
                         foreach ($detalle as $item):
                             //return response()->json(['dato' => $item['presente'][2]], 200);
-                            if (isset($item['presente'])) {
+                            if (isset($item['presente']) && count($item['presente']) > 0) {
                                 $this->detalleEnfunde($enfunde, $item['presente'], $cabecera['empleado']);
                             }
 
-                            if (isset($item['futuro'])) {
+                            if (isset($item['futuro']) && count($item['futuro']) > 0) {
                                 $this->detalleEnfunde($enfunde, $item['futuro'], $cabecera['empleado'], false);
                             }
                         endforeach;
@@ -522,10 +522,11 @@ class EnfundeController extends Controller
                     $enfunde_detalle->idmaterial = $semana['detalle']['material']['id'];
                     $enfunde_detalle->idseccion = $semana['distribucion']['id'];
 
-                    if (!is_null($semana['reelevo'])) {
+                    if (!is_null($semana['reelevo']) && isset($semana['reelevo']['id'])) {
                         $enfunde_detalle->reelevo = 1;
                         $enfunde_detalle->idreelevo = $semana['reelevo']['id'];
                     }
+
                     $enfunde_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
                 } else {
                     if ($presente) {
@@ -535,7 +536,7 @@ class EnfundeController extends Controller
                     }
                 }
 
-                if (!is_null($semana['reelevo'])) {
+                if (!is_null($semana['reelevo']) && isset($semana['reelevo']['id'])) {
                     $inventario = InventarioEmpleado::where([
                         'idempleado' => $semana['reelevo']['id'],
                         'idmaterial' => $semana['detalle']['material']['id'],
@@ -555,7 +556,7 @@ class EnfundeController extends Controller
                 }
 
                 if (is_object($inventario)) {
-                    if ($inventario->tot_devolucion > $cantidad) {
+                    if ($inventario->tot_devolucion >= $cantidad) {
                         $inventario->tot_devolucion = ($inventario->tot_devolucion - $cantidad) + $semana['cantidad'];
                     } else {
                         $inventario->tot_devolucion += $semana['cantidad'];
