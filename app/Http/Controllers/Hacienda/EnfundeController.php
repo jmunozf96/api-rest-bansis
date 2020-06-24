@@ -513,6 +513,7 @@ class EnfundeController extends Controller
                     'idseccion' => $semana['distribucion']['id'],
                     'idreelevo' => !is_null($semana['reelevo']) ? $semana['reelevo']['id'] : null
                 ])->first();
+
                 $cantidad = 0;
 
                 if (!is_object($enfunde_detalle) && empty($enfunde_detalle)) {
@@ -554,10 +555,10 @@ class EnfundeController extends Controller
                 }
 
                 if (is_object($inventario)) {
-                    if ($inventario->tot_devolucion >= $cantidad) {
+                    if ($inventario->tot_devolucion > $cantidad) {
                         $inventario->tot_devolucion = ($inventario->tot_devolucion - $cantidad) + $semana['cantidad'];
                     } else {
-                        $inventario->tot_devolucion = $inventario->tot_devolucion + $semana['cantidad'];
+                        $inventario->tot_devolucion += $semana['cantidad'];
                     }
                     $inventario->sld_final = ($inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_devolucion;
                     $inventario->save();
@@ -951,14 +952,31 @@ class EnfundeController extends Controller
     {
         try {
             $idenfunde = $request->get('id');
-            $materiales = Enfunde::groupBy('HAC_ENFUNDES.id', 'material.codigo', 'material.descripcion')
+            $materiales = Enfunde::groupBy('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'material.id', 'material.codigo', 'material.descripcion')
                 ->rightJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
                 ->rightJoin('BOD_MATERIALES as material', 'material.id', 'detalle.idmaterial')
-                ->select('HAC_ENFUNDES.id', 'material.codigo', 'material.descripcion',
+                ->select('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'material.id as idmaterial', 'material.codigo', 'material.descripcion',
                     DB::raw('sum(detalle.cant_pre) as presente'),
                     DB::raw('sum(detalle.cant_fut) as futuro'))
                 ->where(['HAC_ENFUNDES.id' => $idenfunde])
                 ->get();
+
+            if (count($materiales) > 0) {
+                foreach ($materiales as $material):
+                    $invenario = InventarioEmpleado::select(DB::raw('ISNULL(sum(tot_egreso),0) as despacho'),
+                        DB::raw('ISNULL(sum(sld_inicial),0) as inicio'),
+                        DB::raw('ISNULL(sum(sld_final),0) as final')
+                    )->where([
+                        'idmaterial' => $material->idmaterial,
+                        'idcalendar' => $material->idcalendar
+                    ])->first();
+
+                    $material->inicial = $invenario->inicio;
+                    $material->despacho = $invenario->despacho;
+                    $material->final = $invenario->final;
+                endforeach;
+            }
+
             return response()->json($materiales, 200);
         } catch (\Exception $ex) {
             $this->out['message'] = $ex->getMessage();
