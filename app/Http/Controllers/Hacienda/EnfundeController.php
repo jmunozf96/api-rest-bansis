@@ -511,14 +511,8 @@ class EnfundeController extends Controller
                     'idenfunde' => $enfunde->id,
                     'idmaterial' => $semana['detalle']['material']['id'],
                     'idseccion' => $semana['distribucion']['id'],
-                ]);
-
-                if ($semana['reelevo']) {
-                    $enfunde_detalle = $enfunde_detalle->where('idreelevo', $semana['reelevo']['id']);
-                }
-
-                $enfunde_detalle = $enfunde_detalle->first();
-
+                    'idreelevo' => !is_null($semana['reelevo']) ? $semana['reelevo']['id'] : null
+                ])->first();
                 $cantidad = 0;
 
                 if (!is_object($enfunde_detalle) && empty($enfunde_detalle)) {
@@ -527,11 +521,10 @@ class EnfundeController extends Controller
                     $enfunde_detalle->idmaterial = $semana['detalle']['material']['id'];
                     $enfunde_detalle->idseccion = $semana['distribucion']['id'];
 
-                    if ($semana['reelevo']) {
+                    if (!is_null($semana['reelevo'])) {
                         $enfunde_detalle->reelevo = 1;
                         $enfunde_detalle->idreelevo = $semana['reelevo']['id'];
                     }
-
                     $enfunde_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
                 } else {
                     if ($presente) {
@@ -541,7 +534,7 @@ class EnfundeController extends Controller
                     }
                 }
 
-                if ($semana['reelevo']) {
+                if (!is_null($semana['reelevo'])) {
                     $inventario = InventarioEmpleado::where([
                         'idempleado' => $semana['reelevo']['id'],
                         'idmaterial' => $semana['detalle']['material']['id'],
@@ -847,12 +840,9 @@ class EnfundeController extends Controller
                         $enfunde_detalle = EnfundeDet::where([
                             'idenfunde' => $enfunde->id,
                             'idmaterial' => $item->material,
-                            'idseccion' => $item->seccion
+                            'idseccion' => $item->seccion,
+                            'idreelevo' => !is_null($item->reelevo) ? $item->reelevo->id : null
                         ]);
-
-                        if (is_object($item->reelevo)) {
-                            $enfunde_detalle = $enfunde_detalle->where(['idreelevo' => $item->reelevo->id]);
-                        }
 
                         $enfunde_detalle = $enfunde_detalle->first();
 
@@ -997,7 +987,8 @@ class EnfundeController extends Controller
         }
     }
 
-    public function enfundeSemanal_PDF(){
+    public function enfundeSemanal_PDF()
+    {
         $pdf = \PDF::loadView('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
         return $pdf->download('ejemplo.pdf');
         //return view('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
