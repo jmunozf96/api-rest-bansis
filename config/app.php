@@ -175,7 +175,8 @@ return [
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
         \App\Providers\HelperProvider::class,
-        \App\Providers\JwtAuthServiceProvider::class
+        \App\Providers\JwtAuthServiceProvider::class,
+        Barryvdh\DomPDF\ServiceProvider::class,
 
     ],
 
@@ -228,8 +229,8 @@ return [
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
         'Servicios' => \App\Helpers\Helper::class,
-        'JwtAuth' => \App\Helpers\JwtAuth::class
-
+        'JwtAuth' => \App\Helpers\JwtAuth::class,
+        'PDF' => Barryvdh\DomPDF\Facade::class,
     ],
 
 ];

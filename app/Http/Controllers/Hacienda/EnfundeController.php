@@ -13,9 +13,10 @@ use App\Models\Hacienda\LoteSeccionLaborEmpDet;
 use App\Models\Sistema\Calendario;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use MongoDB\Driver\Exception\Exception;
+use Barryvdh\DomPDF\PDF;
 
 class EnfundeController extends Controller
 {
@@ -28,7 +29,8 @@ class EnfundeController extends Controller
             'getEnfundeDetalle', 'getEnfundeSemanal',
             'getEnfundeSeccion', 'getEnfundeSemanalDetail',
             'closeEnfundeSemanal', 'informeSemanalEnfunde',
-            'informeSemanalEnfundeMaterial','informeSemanalEnfundeEmpleados'
+            'informeSemanalEnfundeMaterial', 'informeSemanalEnfundeEmpleados',
+            'enfundeSemanal_PDF'
         ]]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
@@ -229,17 +231,15 @@ class EnfundeController extends Controller
                 ->orderBy('calendario.periodo', 'desc')
                 ->orderBy('calendario.semana', 'desc')
                 ->orderBy('HAC_ENFUNDES.idhacienda')
-                ->rightJoin('SIS_CALENDARIO_DOLE as calendario', [
-                    'calendario.codigo' => 'HAC_ENFUNDES.idcalendar',
-                    'calendario.fecha' => 'HAC_ENFUNDES.fecha'
-                ])
+                ->rightJoin('SIS_CALENDARIO_DOLE as calendario', 'calendario.fecha', 'HAC_ENFUNDES.fecha')
                 ->join('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
                 ->join('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
                 ->select('HAC_ENFUNDES.id', DB::raw('DATEPART(YEAR,HAC_ENFUNDES.fecha) as year'), 'calendario.color',
                     'calendario.periodo', 'calendario.semana', 'HAC_ENFUNDES.idhacienda',
+                    DB::raw('ISNULL(SUM(detalle.cant_pre), 0) As presente'),
+                    DB::raw('ISNULL(SUM(detalle.cant_fut), 0) As futuro'),
                     DB::raw('ISNULL(SUM(detalle.cant_pre) + SUM(detalle.cant_fut), 0) As total'),
-                    DB::raw('ISNULL(SUM(detalle.cant_desb), 0) As desbunche'),
-                    DB::raw('ISNULL(SUM(seccion.has), 0) As has'), 'HAC_ENFUNDES.cerrado')
+                    DB::raw('ISNULL(SUM(detalle.cant_desb), 0) As desbunche'), 'HAC_ENFUNDES.cerrado')
                 ->with('hacienda');
 
             if (!empty($hacienda)) {
@@ -273,8 +273,7 @@ class EnfundeController extends Controller
                 ->select('HAC_ENFUNDES.id', 'calendario.color',
                     'calendario.periodo', 'calendario.semana', 'calendario.codigo', 'HAC_ENFUNDES.idhacienda',
                     DB::raw('ISNULL(SUM(detalle.cant_pre) + SUM(detalle.cant_fut), 0) As total'),
-                    DB::raw('ISNULL(SUM(detalle.cant_desb), 0) As desbunche'),
-                    DB::raw('ISNULL(SUM(seccion.has), 0) As has'), 'HAC_ENFUNDES.cerrado')
+                    DB::raw('ISNULL(SUM(detalle.cant_desb), 0) As desbunche'), 'HAC_ENFUNDES.cerrado')
                 ->with('hacienda')
                 ->where('HAC_ENFUNDES.id', $id)
                 ->first();
@@ -283,8 +282,10 @@ class EnfundeController extends Controller
                 ->join('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'HAC_DET_ENFUNDES.idseccion')
                 ->join('HAC_LOTES_SECCION as loteSec', 'loteSec.id', 'seccion.idlote_sec')
                 ->select('seccion.idlote_sec', 'loteSec.alias',
+                    DB::raw("(right('0' + loteSec.alias,3)) as 'alias'"),
                     DB::raw('ISNULL(SUM(cant_pre), 0) As cant_pre'),
                     DB::raw('ISNULL(SUM(cant_fut), 0) As cant_fut'))
+                ->orderByRaw("(right('0' + loteSec.alias,3))")
                 ->where('idenfunde', $id)
                 ->get();
             $total_semana = 0;
@@ -308,11 +309,12 @@ class EnfundeController extends Controller
     {
         try {
             $seccion = $request->get('seccion');
+            $enfunde = $request->get('idenfunde');
             $calendario = $request->get('calendario');
 
             if (!empty($seccion) && !empty($calendario) && isset($seccion) && isset($calendario)
-                && !is_null($calendario) && !is_null($seccion)) {
-                $enfunde = Enfunde::where(['idcalendar' => $calendario])->first();
+                && !is_null($calendario) && !is_null($seccion) && !empty($enfunde) && !is_null($enfunde)) {
+                $enfunde = Enfunde::where(['idcalendar' => $calendario, 'id' => $enfunde])->first();
                 if (is_object($enfunde)) {
                     $seccionLote = LoteSeccionLaborEmpDet::select('id', 'idcabecera', 'idlote_sec', 'has')
                         ->where(['idlote_sec' => $seccion])
@@ -321,7 +323,11 @@ class EnfundeController extends Controller
                             $query->where('id', $seccion);
                         }])
                         ->first();
-                    $detalle_enfunde = EnfundeDet::select('id', 'idenfunde', 'idseccion', 'cant_pre', 'cant_fut', 'reelevo', 'idreelevo')
+                    $detalle_enfunde = EnfundeDet::groupBy('idenfunde', 'idseccion', 'reelevo', 'idreelevo')
+                        ->select('idenfunde', 'idseccion', 'reelevo', 'idreelevo',
+                            DB::raw('sum(cant_pre) as cant_pre'),
+                            DB::raw('sum(cant_fut) as cant_fut')
+                        )
                         ->where('idenfunde', $enfunde->id)
                         ->with(['seccion' => function ($query) use ($seccion) {
                             $query->select('id', 'idcabecera', 'idlote_sec', 'has');
@@ -939,6 +945,8 @@ class EnfundeController extends Controller
                 ->with(['hacienda' => function ($query) {
                     $query->select('id', 'detalle');
                 }])
+                ->orderBy('HAC_ENFUNDES.idcalendar', 'desc')
+                ->orderBy('HAC_ENFUNDES.idhacienda')
                 ->paginate(10);
 
 
@@ -987,6 +995,12 @@ class EnfundeController extends Controller
             $this->out['message'] = $ex->getMessage();
             return response()->json($this->out, 500);
         }
+    }
+
+    public function enfundeSemanal_PDF(){
+        $pdf = \PDF::loadView('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
+        return $pdf->download('ejemplo.pdf');
+        //return view('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
     }
 
     public function respuesta_json(...$datos)

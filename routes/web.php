@@ -129,3 +129,5 @@ Route::delete('api/bansis-app/index.php/deleteEnfunde/empleado', 'Hacienda\Enfun
 Route::get('api/bansis-app/index.php/informe/enfunde/semanal', 'Hacienda\EnfundeController@informeSemanalEnfunde');
 Route::get('api/bansis-app/index.php/informe/enfunde/semanal-material', 'Hacienda\EnfundeController@informeSemanalEnfundeMaterial');
 Route::get('api/bansis-app/index.php/informe/enfunde/semanal-empleados', 'Hacienda\EnfundeController@informeSemanalEnfundeEmpleados');
+//PDF
+Route::get('api/bansis-app/index.php/informe/enfunde-pdf/semanal-empleados', 'Hacienda\EnfundeController@enfundeSemanal_PDF');
