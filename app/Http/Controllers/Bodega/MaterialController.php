@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Bodega;
 
 use App\Http\Controllers\Controller;
 use App\Models\Bodega\Material;
+use App\Models\Hacienda\InventarioEmpleado;
 use App\Models\XassInventario;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class MaterialController extends Controller
@@ -15,7 +17,9 @@ class MaterialController extends Controller
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show', 'customSelect', 'getOptions', 'getMateriales']]);
+        $this->middleware('api.auth', ['except' => ['index', 'show',
+            'customSelect', 'getOptions',
+            'getMateriales', 'updateStockMaterial']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
     }
 
@@ -181,10 +185,17 @@ class MaterialController extends Controller
             }
             if (!is_null($material) && !empty($material) && is_object($material)) {
                 $existe = Material::where(['codigo' => $codigo, 'idbodega' => $bodega, 'estado' => true])->first();
+
+                //Buscar saldo del material
+                $material_saldo = InventarioEmpleado::select(DB::raw('ISNULL(sum(sld_final),0) as saldo'))
+                    ->where(['idmaterial' => $existe->id])
+                    ->where(['estado' => 1])
+                    ->first();
+                
                 if (!is_null($existe) && !empty($existe) && is_object($existe)) {
                     if (intval($existe->stock) != intval($material->stock)) {
                         $update_material = Material::where(['codigo' => $codigo, 'idbodega' => $bodega, 'estado' => true])->update([
-                            'stock' => $material->stock,
+                            'stock' => $material->stock - +$material_saldo->saldo,
                             'updated_at' => Carbon::now()->format(config('constants.format_date'))
                         ]);
 
