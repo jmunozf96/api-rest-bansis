@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hacienda;
 
 use App\Http\Controllers\Controller;
+use App\Models\Bodega\EgresoBodega;
 use App\Models\Hacienda\Empleado;
 use App\Models\Hacienda\Enfunde;
 use App\Models\Hacienda\EnfundeDet;
@@ -29,7 +30,7 @@ class EnfundeController extends Controller
             'getEnfundeDetalle', 'getEnfundeSemanal',
             'getEnfundeSeccion', 'getEnfundeSemanalDetail',
             'closeEnfundeSemanal', 'informeSemanalEnfunde',
-            'informeSemanalEnfundeMaterial', 'informeSemanalEnfundeEmpleados',
+            'informeSemanalEnfundeMaterial', 'informeSemanalEnfundeEmpleados', 'informeSmanalEnfundeEmpleadoMaterial',
             'enfundeSemanal_PDF'
         ]]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
@@ -989,17 +990,97 @@ class EnfundeController extends Controller
     {
         try {
             $idenfunde = $request->get('id');
-            $empleados = Enfunde::groupBy('HAC_ENFUNDES.id', 'empleado.codigo', 'empleado.nombres')
+            $empleados = Enfunde::groupBy('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'empleado.id', 'empleado.codigo', 'empleado.nombres')
                 ->rightJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
                 ->rightJoin('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
                 ->rightJoin('HAC_LOTSEC_LABEMPLEADO as cabeceraSeccion', 'cabeceraSeccion.id', 'seccion.idcabecera')
                 ->rightJoin('HAC_EMPLEADOS as empleado', 'empleado.id', 'cabeceraSeccion.idempleado')
-                ->select('HAC_ENFUNDES.id', 'empleado.codigo', 'empleado.nombres',
+                ->select('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'empleado.id as idempleado', 'empleado.codigo', 'empleado.nombres',
                     DB::raw('sum(detalle.cant_pre) as presente'),
                     DB::raw('sum(detalle.cant_fut) as futuro'))
                 ->where(['HAC_ENFUNDES.id' => $idenfunde])
                 ->get();
             return response()->json($empleados, 200);
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function informeSmanalEnfundeEmpleadoMaterial(Request $request)
+    {
+        try {
+            $idenfunde = $request->get('id');
+            $calendario = $request->get('calendario');
+            $empleado = $request->get('empleado');
+
+            $reelevo = $request->get('reelevo');
+
+            $materiales = Enfunde::groupBy('enfunde_det.idmaterial', 'material.descripcion', 'enfunde_det.idreelevo', 'empleado.nombres')
+                ->leftJoin('HAC_DET_ENFUNDES as enfunde_det', function ($join) use ($reelevo) {
+                    $join->on('enfunde_det.idenfunde', 'HAC_ENFUNDES.id');
+                    if (!is_null($reelevo) && filter_var($reelevo, FILTER_VALIDATE_BOOLEAN)) {
+                        $join->where('enfunde_det.reelevo', 1);
+                    } else {
+                        $join->where('enfunde_det.reelevo', 0);
+                    }
+                })
+                ->join('HAC_LOTSEC_LABEMPLEADO_DET as seccion_det', 'seccion_det.id', 'enfunde_det.idseccion')
+                ->join('HAC_LOTSEC_LABEMPLEADO as seccion', function ($join) use ($empleado) {
+                    $join->on('seccion.id', 'seccion_det.idcabecera');
+                    $join->where('idempleado', $empleado);
+                })
+                ->leftJoin('BOD_MATERIALES as material', 'material.id', 'enfunde_det.idmaterial')
+                ->leftJoin('HAC_EMPLEADOS as empleado', 'empleado.id', 'enfunde_det.idreelevo')
+                ->select('enfunde_det.idmaterial', 'material.descripcion', 'enfunde_det.idreelevo', 'empleado.nombres',
+                    DB::raw('sum(enfunde_det.cant_pre) as presente'),
+                    DB::raw('sum(enfunde_det.cant_fut) as futuro')
+                )
+                ->where([
+                    'HAC_ENFUNDES.idcalendar' => $calendario,
+                    'HAC_ENFUNDES.id' => $idenfunde
+                ])->get();
+
+
+            if (count($materiales) > 0) {
+                foreach ($materiales as $material):
+
+                    if (!is_null($reelevo) && filter_var($reelevo, FILTER_VALIDATE_BOOLEAN)) {
+                        $empleado = $material->idreelevo;
+                    }
+
+                    $egresos = EgresoBodega::groupBy('egreso_det.idmaterial')
+                        ->leftJoin('BOD_DET_EGRESOS as egreso_det', function ($join) use ($material) {
+                            $join->on(['egreso_det.idegreso' => 'BOD_EGRESOS.id']);
+                            $join->where(['idmaterial' => $material->idmaterial]);
+                        })
+                        ->select('egreso_det.idmaterial', DB::raw('sum(egreso_det.cantidad) as cantidad'))
+                        ->where([
+                            'BOD_EGRESOS.idcalendario' => $calendario,
+                            'BOD_EGRESOS.idempleado' => $empleado,
+                        ])->first();
+
+                    $material->despacho = 0;
+
+                    if (is_object($egresos)) {
+                        $material->despacho = $egresos->cantidad;
+                    }
+
+                    $inventario = InventarioEmpleado::select('id', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_devolucion', 'sld_final')
+                        ->where([
+                            'idcalendar' => $calendario,
+                            'idempleado' => $empleado,
+                            'idmaterial' => $material->idmaterial
+                        ])->first();
+
+                    $material->inventario = null;
+                    if(is_object($inventario)){
+                        $material->inventario = $inventario;
+                    }
+                endforeach;
+            }
+
+            return response()->json($materiales, 200);
         } catch (\Exception $ex) {
             $this->out['message'] = $ex->getMessage();
             return response()->json($this->out, 500);
