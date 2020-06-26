@@ -98,7 +98,7 @@ class EmpleadoController extends Controller
         $empleados = $empleados->has('inventario')
             ->with(['inventario' => function ($query) use ($hacienda, $calendario) {
                 $query->where(['estado' => 1]);
-                $query->where('sld_final', '>', 0);
+                //$query->where('sld_final', '>', 0);
                 $query->with(['material' => function ($query) use ($hacienda) {
                     $query->select('id', 'codigo', 'stock', 'descripcion');
                 }]);
