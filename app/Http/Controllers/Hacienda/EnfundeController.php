@@ -227,8 +227,9 @@ class EnfundeController extends Controller
             $hacienda = $request->get('hacienda');
 
             $enfundeSemanal = Enfunde::groupBy('calendario.periodo',
-                'calendario.semana', 'calendario.color',
-                'HAC_ENFUNDES.idhacienda', 'HAC_ENFUNDES.fecha', 'HAC_ENFUNDES.cerrado', 'HAC_ENFUNDES.id')
+                'calendario.semana', 'calendario.color', 'HAC_ENFUNDES.idhacienda',
+                'HAC_ENFUNDES.presente', 'HAC_ENFUNDES.futuro', 'HAC_ENFUNDES.cerrado',
+                'HAC_ENFUNDES.fecha', 'HAC_ENFUNDES.cerrado', 'HAC_ENFUNDES.id')
                 ->orderBy('calendario.periodo', 'desc')
                 ->orderBy('calendario.semana', 'desc')
                 ->orderBy('HAC_ENFUNDES.idhacienda')
@@ -237,6 +238,7 @@ class EnfundeController extends Controller
                 ->join('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
                 ->select('HAC_ENFUNDES.id', DB::raw('DATEPART(YEAR,HAC_ENFUNDES.fecha) as year'), 'calendario.color',
                     'calendario.periodo', 'calendario.semana', 'HAC_ENFUNDES.idhacienda',
+                    'HAC_ENFUNDES.presente as stPresente', 'HAC_ENFUNDES.futuro as stFuturo', 'HAC_ENFUNDES.cerrado',
                     DB::raw('ISNULL(SUM(detalle.cant_pre), 0) As presente'),
                     DB::raw('ISNULL(SUM(detalle.cant_fut), 0) As futuro'),
                     DB::raw('ISNULL(SUM(detalle.cant_pre) + SUM(detalle.cant_fut), 0) As total'),
@@ -404,7 +406,6 @@ class EnfundeController extends Controller
                             $enfunde->idhacienda = $cabecera['hacienda']['id'];
                             $enfunde->idlabor = $cabecera['labor']['id'];
                             $enfunde->fecha = $cabecera['fecha'];
-                            $enfunde->presente = 1;
                             $enfunde->futuro = 0;
                             $enfunde->cerrado = 0;
                             $enfunde->created_at = Carbon::now()->format(config('constants.format_date'));
@@ -608,74 +609,110 @@ class EnfundeController extends Controller
     {
         try {
             $enfunde = Enfunde::where('id', $id)->first();
-            $enfunde_detalle = EnfundeDet::where('idenfunde', $enfunde->id)
-                ->with(['seccion' => function ($query) {
-                    $query->with('cabSeccionLabor');
-                }])
-                ->get();
+            $enfunde_detalle = EnfundeDet::where('idenfunde', $enfunde->id)->get();
 
             if (is_object($enfunde) && count($enfunde_detalle) > 0) {
                 DB::beginTransaction();
-                $futuro = strtotime(str_replace('/', '-', $enfunde->fecha . "+ 7 days"));
-                $fecha_fut = date(config('constants.date'), $futuro);
-                $calendario_fut = Calendario::where('fecha', $fecha_fut)->first();
+                if ($enfunde->presente == 0) {
+                    //Primer cierre Presente
+                    $enfunde->presente = 1;
+                    $this->out = $this->respuesta_json('success', 200, 'Enfunde Presente cerrado con exito');
+                } else if ($enfunde->presente == 1) {
+                    $empleados = EnfundeDet::groupBy('empleado.id')
+                        ->join('HAC_LOTSEC_LABEMPLEADO_DET as sec_det', 'sec_det.id', 'HAC_DET_ENFUNDES.idseccion')
+                        ->join('HAC_LOTSEC_LABEMPLEADO as seccion', 'seccion.id', 'sec_det.idcabecera')
+                        ->join('HAC_EMPLEADOS as empleado', 'empleado.id', 'seccion.idempleado')
+                        ->select('empleado.id')
+                        ->where([
+                            'idenfunde' => $enfunde->id,
+                            'idreelevo' => null
+                        ])->get()->pluck('id')->toArray();
 
-                $no_cierra = array();
+                    $reelevos = EnfundeDet::groupBy('empleado.id')
+                        ->join('HAC_EMPLEADOS as empleado', 'empleado.id', 'HAC_DET_ENFUNDES.idreelevo')
+                        ->select('empleado.id')
+                        ->where([
+                            'idenfunde' => $enfunde->id,
+                            'reelevo' => 1
+                        ])->get()->pluck('id')->toArray();
 
-                foreach ($enfunde_detalle as $detalle):
-                    if ($detalle->cant_pre > 0 || $detalle->cant_fut > 0) {
-                        $idempleado = $detalle->seccion->cabSeccionLabor->idempleado;
-                        if ($detalle->reelevo) {
-                            $idempleado = $detalle->idreelevo;
-                        }
-                        $inventario = InventarioEmpleado::where([
-                            'idempleado' => $idempleado,
-                            'idmaterial' => $detalle->idmaterial,
-                            'idcalendar' => $enfunde->idcalendar
-                        ])->first();
-                        if (is_object($inventario)) {
-                            $inventario->estado = false;
-                            $inventario->save();
+                    $empleados_semana = array_merge($empleados, $reelevos);
+                    $futuro = strtotime(str_replace('/', '-', $enfunde->fecha . "+ 7 days"));
+                    $fecha_fut = date(config('constants.date'), $futuro);
+                    $calendario_fut = Calendario::where('fecha', $fecha_fut)->first();
 
-                            $saldo_final = $inventario->sld_final;
-                            if ($saldo_final > 0) {
-                                $inventario_empleado = InventarioEmpleado::where([
-                                    'idempleado' => $idempleado,
-                                    'idmaterial' => $detalle->idmaterial,
-                                    'idcalendar' => $calendario_fut->codigo
+                    $empleados_traspasos = array();
+
+                    foreach ($empleados_semana as $empleado):
+                        $inventarios_empleado = InventarioEmpleado::where([
+                            'idempleado' => $empleado,
+                            'idcalendar' => $enfunde->idcalendar,
+                        ])->where('sld_final', '>', 0)->get();
+
+                        foreach ($inventarios_empleado as $inventario):
+                            $inventario_empleado = InventarioEmpleado::where([
+                                'idempleado' => $empleado,
+                                'idmaterial' => $inventario->idmaterial,
+                                'idcalendar' => $inventario->idcalendar
+                            ])->first();
+
+                            if (is_object($inventario_empleado)) {
+                                $inventario_empleado->estado = 0;
+                                $inventario_empleado->save();
+
+                                //Si ya se ha registrado un despacho
+                                $inventarios_empleado_siguiente_semana = InventarioEmpleado::where([
+                                    'idempleado' => $empleado,
+                                    'idcalendar' => $calendario_fut->codigo,
+                                    'idmaterial' => $inventario_empleado->idmaterial
                                 ])->first();
 
-                                if (!is_object($inventario_empleado)) {
-                                    $inventario_empleado = new InventarioEmpleado();
-                                    $inventario_empleado->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
-                                    $inventario_empleado->idempleado = $idempleado;
-                                    $inventario_empleado->idmaterial = $detalle->idmaterial;
-                                    $inventario_empleado->idcalendar = $calendario_fut->codigo;
-                                    $inventario_empleado->tot_egreso = 0;
-                                    $inventario_empleado->tot_devolucion = 0;
-                                    $inventario_empleado->created_at = Carbon::now()->format(config('constants.format_date'));
+                                if (!is_object($inventarios_empleado_siguiente_semana) && empty($inventarios_empleado_siguiente_semana)) {
+                                    //Lo pasamos a la siguiente semana
+                                    $inventarios_empleado_siguiente_semana = new InventarioEmpleado();
+                                    $inventarios_empleado_siguiente_semana->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
+                                    $inventarios_empleado_siguiente_semana->idempleado = $empleado;
+                                    $inventarios_empleado_siguiente_semana->idmaterial = $inventario_empleado->idmaterial;
+                                    $inventarios_empleado_siguiente_semana->idcalendar = $calendario_fut->codigo;
+                                    $inventarios_empleado_siguiente_semana->tot_egreso = 0;
+                                    $inventarios_empleado_siguiente_semana->tot_devolucion = 0;
+                                    $inventarios_empleado_siguiente_semana->created_at = Carbon::now()->format(config('constants.format_date'));
                                 }
 
-                                $inventario_empleado->sld_inicial = $saldo_final;
-                                $inventario_empleado->sld_final = (+$inventario_empleado->sld_inicial + +$inventario_empleado->tot_egreso) - $inventario_empleado->tot_devolucion;
-                                $inventario_empleado->updated_at = Carbon::now()->format(config('constants.format_date'));
-                                $inventario_empleado->save();
+                                $inventarios_empleado_siguiente_semana->sld_inicial = $inventario_empleado->sld_final;
+                                $inventarios_empleado_siguiente_semana->sld_final = (+$inventarios_empleado_siguiente_semana->sld_inicial + +$inventarios_empleado_siguiente_semana->tot_egreso) - $inventarios_empleado_siguiente_semana->tot_devolucion;
+                                $inventarios_empleado_siguiente_semana->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                $inventarios_empleado_siguiente_semana->save();
                             }
-                        }
-                    } else {
-                        array_push($no_cierra, true);
-                    }
-                endforeach;
+                        endforeach;
 
-                if (count($no_cierra) == 0) {
+                        $empleado_procesado = Empleado::select('id', 'nombres')
+                            ->with(['inventario' => function ($query) use ($calendario_fut) {
+                                $query->where('idcalendar', $calendario_fut->codigo);
+                                $query->where('sld_inicial', '>', 0);
+                                $query->select('id', 'idempleado', 'idmaterial', 'sld_inicial', 'estado');
+                                $query->with(['material' => function ($query) {
+                                    $query->select('id', 'codigo', 'descripcion');
+                                }]);
+                            }])
+                            ->whereHas('inventario', function ($query) use ($calendario_fut) {
+                                $query->where('idcalendar', $calendario_fut->codigo);
+                                $query->where('sld_inicial', '>', 0);
+                            })
+                            ->where('id', $empleado)
+                            ->first();
+                        array_push($empleados_traspasos, $empleado_procesado);
+                    endforeach;
+
                     $enfunde->futuro = true;
                     $enfunde->cerrado += 1;
+                    $this->out = $this->respuesta_json('success', 200, 'Enfunde Futuro cerrado con exito');
+                    $this->out['transfers'] = $empleados_traspasos;
                 }
 
+                $enfunde->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $enfunde->save();
-
                 DB::commit();
-                $this->out = $this->respuesta_json('success', 200, 'Enfunde cerrado con exito');
                 return response()->json($this->out, 200);
             }
 
@@ -707,9 +744,15 @@ class EnfundeController extends Controller
 
             if (!empty($idcalendar)) {
                 $secciones_empleado = LoteSeccionLaborEmp::where('idempleado', $idempleado)->first();
-                $secciones = LoteSeccionLaborEmpDet::select('id')
+                $secciones = LoteSeccionLaborEmpDet::select('id', 'idcabecera')
                     ->where('idcabecera', $secciones_empleado->id)
                     ->get()->pluck('id');
+
+                $totalSaldo = InventarioEmpleado::select(DB::raw('sum(sld_final) as saldo'))
+                    ->where([
+                        'idempleado' => $idempleado,
+                        'idcalendar' => $idcalendar
+                    ])->first();
 
                 $enfundeDetalle = Enfunde::select('id', 'idcalendar', 'fecha', 'presente', 'futuro', 'cerrado', 'estado')
                     ->where([
@@ -741,21 +784,19 @@ class EnfundeController extends Controller
                         $data->idseccion = $detalle->seccion['id'];
                         $reelevo = null;
 
-                        if ($detalle->reelevo) {
-                            $idempleado = $detalle->idreelevo;
+                        if (!is_null($detalle->idreelevo)) {
                             $reelevo = Empleado::select('id', 'idhacienda', 'cedula', 'nombre1', 'nombre2', 'apellido1', 'apellido2', 'nombres')
                                 ->where(['id' => $detalle->idreelevo])->first();
                         }
 
-                        $inventario = InventarioEmpleado::select('id', 'idempleado', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_devolucion', 'sld_final', 'estado')
+                        $inventario = InventarioEmpleado::select('id', 'idcalendar', 'idempleado', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_devolucion', 'sld_final', 'estado')
                             ->where([
-                                'idempleado' => $idempleado,
+                                'idempleado' => !is_null($detalle->idreelevo) ? $reelevo->id : $idempleado,
                                 'idmaterial' => $detalle->idmaterial,
                                 'idcalendar' => $idcalendar,
                             ])->with(['material' => function ($query) {
                                 $query->select('id', 'descripcion', 'stock');
-                            }])
-                            ->first();
+                            }])->first();
 
                         $enfunde = new \stdClass();
                         $enfunde->id = $detalle->id;
@@ -790,6 +831,7 @@ class EnfundeController extends Controller
 
                 $this->out = $this->respuesta_json('success', 200, 'Se devuelven registros');
                 $this->out['dataArray'] = $datos;
+                $this->out['saldoEmpleado'] = $totalSaldo;
                 return response()->json($this->out, 200);
             }
         } catch (\Exception $ex) {
@@ -845,9 +887,8 @@ class EnfundeController extends Controller
                             'idmaterial' => $item->material,
                             'idseccion' => $item->seccion,
                             'idreelevo' => !is_null($item->reelevo) ? $item->reelevo->id : null
-                        ]);
+                        ])->first();
 
-                        $enfunde_detalle = $enfunde_detalle->first();
 
                         if (is_object($enfunde_detalle)) {
                             $seccion_empleado = LoteSeccionLaborEmpDet::where(['id' => $item->seccion])
@@ -860,8 +901,8 @@ class EnfundeController extends Controller
                                 //Inventario
                                 $empleado = $seccion_empleado->cabSeccionLabor->idempleado;
 
-                                if ($enfunde_detalle->reelevo) {
-                                    $empleado = $enfunde_detalle->idreelevo;
+                                if (!is_null($item->reelevo)) {
+                                    $empleado = $item->reelevo->id;
                                 }
 
                                 $inventario = InventarioEmpleado::where([
@@ -1074,7 +1115,7 @@ class EnfundeController extends Controller
                         ])->first();
 
                     $material->inventario = null;
-                    if(is_object($inventario)){
+                    if (is_object($inventario)) {
                         $material->inventario = $inventario;
                     }
                 endforeach;
