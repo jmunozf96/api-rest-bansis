@@ -81,7 +81,11 @@ class EmpleadoController extends Controller
 
     public function getEmpleadosInventario(Request $request, $hacienda, $empleado)
     {
+        //Parametros para ver inventarios de empleados a transferir
+        $grupo = $request->get('grupo');
+        $transfer = $request->get('transfer');
         $indirecto = $request->get('indirecto');
+        //----------------------------------------------------------
         $calendario = $request->get('calendario');
         $empleados = Empleado::select('id', 'cedula', 'idhacienda', 'nombres as descripcion')
             ->where([
@@ -95,20 +99,43 @@ class EmpleadoController extends Controller
             $empleados = $empleados->where('id', $empleado);
         };
 
-        $empleados = $empleados->has('inventario')
-            ->with(['inventario' => function ($query) use ($hacienda, $calendario) {
+        $empleados = $empleados
+            ->with(['inventario' => function ($query) use ($hacienda, $calendario, $grupo, $transfer) {
                 $query->where(['estado' => 1]);
-                //$query->where('sld_final', '>', 0);
-                $query->with(['material' => function ($query) use ($hacienda) {
-                    $query->select('id', 'codigo', 'stock', 'descripcion');
+
+                if (!is_null($transfer) && !empty($transfer) && $transfer == 1) {
+                    $query->where('sld_final', '>', 0);
+                }
+
+                $query->with(['material' => function ($query) use ($hacienda, $grupo) {
+                    $query->select('id', 'codigo', 'stock', 'descripcion', 'idgrupo');
+                    if (!is_null($grupo) && !empty($grupo)) {
+                        $query->where('idgrupo', $grupo);
+                    };
                 }]);
+
+                $query->whereHas('material', function ($query) use ($hacienda, $grupo) {
+                    if (!is_null($grupo) && !empty($grupo)) {
+                        $query->where('idgrupo', $grupo);
+                    };
+                });
+
                 if ($calendario && !empty($calendario)) {
                     $query->where('idcalendar', $calendario);
                 }
 
                 $query->select('id', 'idempleado', 'idcalendar', 'idmaterial', 'tot_egreso', 'sld_final');
             }])
-            ->get();
+            ->whereHas('inventario', function ($query) use ($hacienda, $calendario, $grupo, $transfer) {
+                if (!is_null($transfer) && !empty($transfer) && $transfer == 1) {
+                    $query->where('sld_final', '>', 0);
+                }
+                $query->whereHas('material', function ($query) use ($hacienda, $grupo) {
+                    if (!is_null($grupo) && !empty($grupo)) {
+                        $query->where('idgrupo', $grupo);
+                    };
+                });
+            })->orderBy('nombres')->get();
         return response()->json($empleados, 200);
     }
 

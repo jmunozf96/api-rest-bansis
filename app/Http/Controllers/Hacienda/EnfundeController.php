@@ -288,6 +288,7 @@ class EnfundeController extends Controller
                     DB::raw("(right('0' + loteSec.alias,3)) as 'alias'"),
                     DB::raw('ISNULL(SUM(cant_pre), 0) As cant_pre'),
                     DB::raw('ISNULL(SUM(cant_fut), 0) As cant_fut'))
+                //->orderByRaw("(SUM(cant_pre) + SUM(cant_fut)) desc")
                 ->orderByRaw("(right('0' + loteSec.alias,3))")
                 ->where('idenfunde', $id)
                 ->get();
@@ -350,6 +351,9 @@ class EnfundeController extends Controller
                                 $query->where('id', $seccion);
                             });
                         })
+                        ->with(['reelevo' => function($query){
+                            $query->select('id','nombres','nombre1','nombre2','apellido1','apellido2');
+                        }])
                         ->get();
 
                     if (is_object($seccionLote)) {
@@ -647,7 +651,7 @@ class EnfundeController extends Controller
                         $inventarios_empleado = InventarioEmpleado::where([
                             'idempleado' => $empleado,
                             'idcalendar' => $enfunde->idcalendar,
-                        ])->where('sld_final', '>', 0)->get();
+                        ])->get();
 
                         foreach ($inventarios_empleado as $inventario):
                             $inventario_empleado = InventarioEmpleado::where([
@@ -659,30 +663,31 @@ class EnfundeController extends Controller
                             if (is_object($inventario_empleado)) {
                                 $inventario_empleado->estado = 0;
                                 $inventario_empleado->save();
+                                if ($inventario_empleado->sld_final > 0) {
+                                    //Si ya se ha registrado un despacho
+                                    $inventarios_empleado_siguiente_semana = InventarioEmpleado::where([
+                                        'idempleado' => $empleado,
+                                        'idcalendar' => $calendario_fut->codigo,
+                                        'idmaterial' => $inventario_empleado->idmaterial
+                                    ])->first();
 
-                                //Si ya se ha registrado un despacho
-                                $inventarios_empleado_siguiente_semana = InventarioEmpleado::where([
-                                    'idempleado' => $empleado,
-                                    'idcalendar' => $calendario_fut->codigo,
-                                    'idmaterial' => $inventario_empleado->idmaterial
-                                ])->first();
+                                    if (!is_object($inventarios_empleado_siguiente_semana) && empty($inventarios_empleado_siguiente_semana)) {
+                                        //Lo pasamos a la siguiente semana
+                                        $inventarios_empleado_siguiente_semana = new InventarioEmpleado();
+                                        $inventarios_empleado_siguiente_semana->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
+                                        $inventarios_empleado_siguiente_semana->idempleado = $empleado;
+                                        $inventarios_empleado_siguiente_semana->idmaterial = $inventario_empleado->idmaterial;
+                                        $inventarios_empleado_siguiente_semana->idcalendar = $calendario_fut->codigo;
+                                        $inventarios_empleado_siguiente_semana->tot_egreso = 0;
+                                        $inventarios_empleado_siguiente_semana->tot_devolucion = 0;
+                                        $inventarios_empleado_siguiente_semana->created_at = Carbon::now()->format(config('constants.format_date'));
+                                    }
 
-                                if (!is_object($inventarios_empleado_siguiente_semana) && empty($inventarios_empleado_siguiente_semana)) {
-                                    //Lo pasamos a la siguiente semana
-                                    $inventarios_empleado_siguiente_semana = new InventarioEmpleado();
-                                    $inventarios_empleado_siguiente_semana->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
-                                    $inventarios_empleado_siguiente_semana->idempleado = $empleado;
-                                    $inventarios_empleado_siguiente_semana->idmaterial = $inventario_empleado->idmaterial;
-                                    $inventarios_empleado_siguiente_semana->idcalendar = $calendario_fut->codigo;
-                                    $inventarios_empleado_siguiente_semana->tot_egreso = 0;
-                                    $inventarios_empleado_siguiente_semana->tot_devolucion = 0;
-                                    $inventarios_empleado_siguiente_semana->created_at = Carbon::now()->format(config('constants.format_date'));
+                                    $inventarios_empleado_siguiente_semana->sld_inicial = $inventario_empleado->sld_final;
+                                    $inventarios_empleado_siguiente_semana->sld_final = (+$inventarios_empleado_siguiente_semana->sld_inicial + +$inventarios_empleado_siguiente_semana->tot_egreso) - $inventarios_empleado_siguiente_semana->tot_devolucion;
+                                    $inventarios_empleado_siguiente_semana->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                    $inventarios_empleado_siguiente_semana->save();
                                 }
-
-                                $inventarios_empleado_siguiente_semana->sld_inicial = $inventario_empleado->sld_final;
-                                $inventarios_empleado_siguiente_semana->sld_final = (+$inventarios_empleado_siguiente_semana->sld_inicial + +$inventarios_empleado_siguiente_semana->tot_egreso) - $inventarios_empleado_siguiente_semana->tot_devolucion;
-                                $inventarios_empleado_siguiente_semana->updated_at = Carbon::now()->format(config('constants.format_date'));
-                                $inventarios_empleado_siguiente_semana->save();
                             }
                         endforeach;
 

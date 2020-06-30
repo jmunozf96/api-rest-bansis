@@ -26,6 +26,6 @@ class EnfundeDet extends BaseModel
 
     public function reelevo()
     {
-        return $this->hasOne('App\Models\Hacienda\Empleado', 'id', 'idempleado');
+        return $this->hasOne('App\Models\Hacienda\Empleado', 'id', 'idreelevo');
     }
 }
