@@ -27,7 +27,7 @@ class MaterialController extends Controller
     {
         try {
             $materiales = Material::with('getBodega', 'getGrupo')
-                ->orderBy('codigo', 'asc')
+                ->orderBy('id', 'desc')
                 ->paginate(7);
 
             if (!is_null($materiales) && !empty($materiales)) {
@@ -191,7 +191,7 @@ class MaterialController extends Controller
                     ->where(['idmaterial' => $existe->id])
                     ->where(['estado' => 1])
                     ->first();
-                
+
                 if (!is_null($existe) && !empty($existe) && is_object($existe)) {
                     if (intval($existe->stock) != intval($material->stock)) {
                         $update_material = Material::where(['codigo' => $codigo, 'idbodega' => $bodega, 'estado' => true])->update([
