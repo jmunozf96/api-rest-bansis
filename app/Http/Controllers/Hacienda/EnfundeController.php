@@ -124,7 +124,7 @@ class EnfundeController extends Controller
 
                 $loteros = $loteros->get();
 
-                $enfunde = Enfunde::where(['idcalendar' => $codigoCalendar])->first();
+                $enfunde = Enfunde::where(['idcalendar' => $codigoCalendar, 'idhacienda' => $hacienda])->first();
 
                 $detalleEnfunde = array();
                 if (is_object($enfunde) && !empty($enfunde)) {
