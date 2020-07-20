@@ -58,13 +58,19 @@ class Helper
 
     public function getRecursosUser($id)
     {
-        $recursos = Perfil::select('iduser', 'idrecurso')->where(['iduser' => $id])
-            ->with(['recurso' => function ($query) use ($id) {
+        $recursos_Padres = Perfil::select('recurso.id')
+            ->where(['iduser' => $id, 'recurso.padreId' => null])
+            ->join('SIS_RECURSOS as recurso', 'recurso.id', 'SIS_PERFIL_USUARIOS.idrecurso')
+            ->get()->pluck('id');
+
+        $recursos = Perfil::select('iduser', 'idrecurso', 'recurso.nombre')
+            ->where(['iduser' => $id, 'recurso.padreId' => null])
+            ->orderBy('recurso.nombre')
+            ->join('SIS_RECURSOS as recurso', 'recurso.id', 'SIS_PERFIL_USUARIOS.idrecurso')
+            ->with(['recurso' => function ($query) use ($id, $recursos_Padres) {
                 $query->select('id', 'nombre', 'tipo', 'padreId', 'ruta');
                 $query->where(['estado' => true]);
-
-                $recursos = Perfil::select('iduser', 'idrecurso')->where(['iduser' => $id])->pluck('idrecurso');
-                $query->whereIn('id', $recursos);
+                $query->whereIn('id', $recursos_Padres);
 
                 $query->with(['recursoHijo' => function ($query) use ($id) {
                     $query->select('id', 'nombre', 'tipo', 'padreId', 'ruta');
@@ -73,7 +79,7 @@ class Helper
                     $recursos = Perfil::select('iduser', 'idrecurso')->where(['iduser' => $id])->pluck('idrecurso');
                     $query->whereIn('id', $recursos);
 
-                    $query->with(['recursoHijo' => function ($query) use($id) {
+                    $query->with(['recursoHijo' => function ($query) use ($id) {
                         $query->select('id', 'nombre', 'tipo', 'padreId', 'ruta');
                         $query->where(['estado' => true]);
 
@@ -81,14 +87,14 @@ class Helper
                         $query->whereIn('id', $recursos);
                     }]);
                 }]);
+
             }])
-            ->whereHas('recurso', function ($query) {
-                $query->where([
-                    'padreId' => null,
-                    'estado' => true
-                ]);
-            })
-            ->orderBy('idrecurso')
+            /*            ->whereHas('recurso', function ($query) {
+                            $query->where([
+                                'padreId' => null,
+                                'estado' => true
+                            ]);
+                        })*/
             ->get();
 
         if (count($recursos) > 0) {
@@ -96,5 +102,40 @@ class Helper
         }
 
         return [];
+    }
+
+    public function getColorHexadecimal($idcalendar)
+    {
+        $color = '';
+        switch ($idcalendar) {
+            case 'lila':
+                $color = '#5D0577';
+                break;
+            case 'amarillo':
+                $color = '#F0F043';
+                break;
+            case 'blanco':
+                $color = '#ffffff';
+                break;
+            case 'azul':
+                $color = '#0242A2';
+                break;
+            case 'verde':
+                $color = '#20A84D';
+                break;
+            case 'negro':
+                $color = '#000';
+                break;
+            case 'cafe':
+                $color = '#725934';
+                break;
+            case 'rojo':
+                $color = '#D01C00';
+                break;
+            case 'naranja':
+                $color = '#F5A300';
+                break;
+        }
+        return $color;
     }
 }

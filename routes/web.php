@@ -133,3 +133,12 @@ Route::get('api/bansis-app/index.php/informe/enfunde/semanal-empleados/detalle',
 
 //PDF
 Route::get('api/bansis-app/index.php/informe/enfunde-pdf/semanal-empleados', 'Hacienda\EnfundeController@enfundeSemanal_PDF');
+
+//Api Cosecha
+Route::get('api/bansis-app/index.php/recepcion/343/cintas-semana', 'Sisban\CosechaController@getCintasSemana');
+Route::get('api/bansis-app/index.php/recepcion/343/status', 'Sisban\CosechaController@statusCosecha');
+Route::get('api/bansis-app/index.php/recepcion/343/cosecha', 'Sisban\CosechaController@getCosecha');
+Route::get('api/bansis-app/index.php/recepcion/343/cosecha-lote', 'Sisban\CosechaController@getCosechaLote');
+Route::get('api/bansis-app/index.php/recepcion/343/cosecha-lotes', 'Sisban\CosechaController@getLotesCortadosDia');
+Route::get('api/bansis-app/index.php/recepcion/343/cajas-dia', 'Sisban\CosechaController@getCajasDia');
+Route::get('api/bansis-app/index.php/recepcion/343/lotesRecobro', 'Sisban\CosechaController@getLotesRecobro');

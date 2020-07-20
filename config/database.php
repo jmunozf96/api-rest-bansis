@@ -117,6 +117,19 @@ return [
             'prefix_indexes' => true,
         ],
 
+        'SISBAN' => [
+            'driver' => 'sqlsrv',
+            'url' => env('DATABASE_URL'),
+            'host' => env('SISBAN_HOST', 'localhost'),
+            'port' => env('DB_PORT', '1433'),
+            'database' => env('SISBAN_DATABASE', 'forge'),
+            'username' => env('SISBAN_USERNAME', 'forge'),
+            'password' => env('SISBAN_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+        ],
+
     ],
 
     /*
