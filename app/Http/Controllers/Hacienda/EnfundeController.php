@@ -124,7 +124,7 @@ class EnfundeController extends Controller
 
                 $loteros = $loteros->get();
 
-                $enfunde = Enfunde::where(['idcalendar' => $codigoCalendar])->first();
+                $enfunde = Enfunde::where(['idcalendar' => $codigoCalendar, 'idhacienda' => $hacienda])->first();
 
                 $detalleEnfunde = array();
                 if (is_object($enfunde) && !empty($enfunde)) {
@@ -351,8 +351,8 @@ class EnfundeController extends Controller
                                 $query->where('id', $seccion);
                             });
                         })
-                        ->with(['reelevo' => function($query){
-                            $query->select('id','nombres','nombre1','nombre2','apellido1','apellido2');
+                        ->with(['reelevo' => function ($query) {
+                            $query->select('id', 'nombres', 'nombre1', 'nombre2', 'apellido1', 'apellido2');
                         }])
                         ->get();
 
@@ -410,6 +410,7 @@ class EnfundeController extends Controller
                             $enfunde->idhacienda = $cabecera['hacienda']['id'];
                             $enfunde->idlabor = $cabecera['labor']['id'];
                             $enfunde->fecha = $cabecera['fecha'];
+                            $enfunde->presente = 0;
                             $enfunde->futuro = 0;
                             $enfunde->cerrado = 0;
                             $enfunde->created_at = Carbon::now()->format(config('constants.format_date'));
@@ -621,7 +622,10 @@ class EnfundeController extends Controller
                     //Primer cierre Presente
                     $enfunde->presente = 1;
                     $this->out = $this->respuesta_json('success', 200, 'Enfunde Presente cerrado con exito');
-                } else if ($enfunde->presente == 1) {
+                    $this->out['enfundePresente'] = [
+                        "presente" => "Se ha reportado el enfunde Presente Correctamente"
+                    ];
+                } else if ($enfunde->presente == 1 && $enfunde->cerrado == 1) {
                     $empleados = EnfundeDet::groupBy('empleado.id')
                         ->join('HAC_LOTSEC_LABEMPLEADO_DET as sec_det', 'sec_det.id', 'HAC_DET_ENFUNDES.idseccion')
                         ->join('HAC_LOTSEC_LABEMPLEADO as seccion', 'seccion.id', 'sec_det.idcabecera')
@@ -714,6 +718,9 @@ class EnfundeController extends Controller
                     $this->out = $this->respuesta_json('success', 200, 'Enfunde Futuro cerrado con exito');
                     $this->out['transfers'] = $empleados_traspasos;
                 }
+
+                if ($enfunde->cerrado == 0)
+                    $enfunde->cerrado = 1;
 
                 $enfunde->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $enfunde->save();
