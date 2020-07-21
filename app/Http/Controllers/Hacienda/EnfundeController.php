@@ -242,14 +242,14 @@ class EnfundeController extends Controller
                     DB::raw('ISNULL(SUM(detalle.cant_pre), 0) As presente'),
                     DB::raw('ISNULL(SUM(detalle.cant_fut), 0) As futuro'),
                     DB::raw('ISNULL(SUM(detalle.cant_pre) + SUM(detalle.cant_fut), 0) As total'),
-                    DB::raw('ISNULL(SUM(detalle.cant_desb), 0) As desbunche'), 'HAC_ENFUNDES.cerrado')
+                    DB::raw('ISNULL(SUM(detalle.cant_desb), 0) As desbunche'))
                 ->with('hacienda');
 
             if (!empty($hacienda)) {
                 $enfundeSemanal = $enfundeSemanal->where(['HAC_ENFUNDES.idhacienda' => $hacienda]);
             }
 
-            $enfundeSemanal = $enfundeSemanal->paginate('7');
+            $enfundeSemanal = $enfundeSemanal->paginate(7);
 
             $this->out = $this->respuesta_json('success', 200, 'Datos encontrados');
             $this->out['dataArray'] = $enfundeSemanal;

@@ -135,10 +135,11 @@ Route::get('api/bansis-app/index.php/informe/enfunde/semanal-empleados/detalle',
 Route::get('api/bansis-app/index.php/informe/enfunde-pdf/semanal-empleados', 'Hacienda\EnfundeController@enfundeSemanal_PDF');
 
 //Api Cosecha
-Route::get('api/bansis-app/index.php/recepcion/343/cintas-semana', 'Sisban\CosechaController@getCintasSemana');
-Route::get('api/bansis-app/index.php/recepcion/343/status', 'Sisban\CosechaController@statusCosecha');
-Route::get('api/bansis-app/index.php/recepcion/343/cosecha', 'Sisban\CosechaController@getCosecha');
-Route::get('api/bansis-app/index.php/recepcion/343/cosecha-lote', 'Sisban\CosechaController@getCosechaLote');
-Route::get('api/bansis-app/index.php/recepcion/343/cosecha-lotes', 'Sisban\CosechaController@getLotesCortadosDia');
-Route::get('api/bansis-app/index.php/recepcion/343/cajas-dia', 'Sisban\CosechaController@getCajasDia');
-Route::get('api/bansis-app/index.php/recepcion/343/lotesRecobro', 'Sisban\CosechaController@getLotesRecobro');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintas-semana', 'Sisban\CosechaController@getCintasSemana');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintaRecobro', 'Sisban\CosechaController@getCintaRecobro');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/status', 'Sisban\CosechaController@statusCosecha');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha', 'Sisban\CosechaController@getCosecha');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lote', 'Sisban\CosechaController@getCosechaLote');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lotes', 'Sisban\CosechaController@getLotesCortadosDia');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cajas-dia', 'Sisban\CosechaController@getCajasDia');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/lotesRecobro', 'Sisban\CosechaController@getLotesRecobro');
