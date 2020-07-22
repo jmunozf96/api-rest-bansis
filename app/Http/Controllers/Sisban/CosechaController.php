@@ -259,7 +259,7 @@ class CosechaController extends Controller
 
                 $lotes = $lotes->select('cs_seccion', 'cs_color',
                     DB::raw("count(cs_peso) as cortados, sum(cs_peso) as peso"),
-                    DB::raw("(select sum(pe_cant) as caidas from perdidas_$des_hacienda where pe_seccion = cs_seccion and pe_color = cs_color) as caidas"),
+                    DB::raw("(select sum(pe_cant) from perdidas_$des_hacienda $des_hacienda where $des_hacienda.pe_seccion = cosecha_$des_hacienda.cs_seccion and $des_hacienda.pe_color = cosecha_$des_hacienda.cs_color) as caidas"),
                     DB::raw("(select sum(en_cantpre + en_cantfut) from $des_hacienda.saldo_cinta_lote where en_seccion = cs_seccion and en_color = cs_color) as enfunde"),
                     DB::raw("(select top 1 color from calendario_dole where idcalendar = cs_color) as color"),
                     DB::raw("(select sum(cs_peso) from cosecha_$des_hacienda $des_hacienda with(nolock) where $des_hacienda.cs_seccion = cosecha_$des_hacienda.cs_seccion and $des_hacienda.cs_color = cosecha_$des_hacienda.cs_color and cs_fecha not like '%$fecha%') as pesoTotal"),
@@ -466,9 +466,12 @@ class CosechaController extends Controller
                         'cs_color' => $cinta
                     ])->lock('WITH(NOLOCK)')->get()->count();
 
-                    $perdidas = $this->perdidasCinta($hacienda)->where('pe_color', $cinta)
+                    $perdidas = $this->perdidasCinta($hacienda)
+                        ->where('pe_color', $cinta)
                         ->where('pe_seccion', $lote->descripcion)
-                        ->get()->sum('pe_cant');
+                        ->get()->sum(function ($query){
+                            return $query->pe_cant;
+                        });
 
                     $recobro = ($enfunde - ($cortado + $perdidas)) >= 0 ? ($enfunde - ($cortado + $perdidas)) : 0;
                     array_push($cortados, $recobro);
