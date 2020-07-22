@@ -191,6 +191,9 @@ class CosechaController extends Controller
             $hacienda = $hacienda == 3 ? 2 : 1;
             $color = $request->get('color');
             $lote = $request->get('lote');
+            $fecha = $request->get('fecha');
+            $fecha = strtotime(str_replace('/', '-', $fecha));
+            $fecha = date(config('constants.date'), $fecha);
 
             if (!empty($color) && !is_null($color)) {
                 if (!empty($lote) && !is_null($lote)) {
@@ -203,20 +206,15 @@ class CosechaController extends Controller
 
                     $racimos_cortados = $this->cosechaHacienda($hacienda)->where('cs_color', $color)
                         ->where('cs_seccion', 'like', "%$lote%")
+                        ->where('cs_fecha', $fecha)
                         ->select(DB::raw('COUNT(*) as total'), DB::raw('SUM(cs_peso) as peso'))
                         ->first();
-
-                    $perdidas = $this->perdidasCinta($hacienda)->select(DB::raw("SUM(pe_cant) as total"))
-                        ->where('pe_color', $color)
-                        ->where('pe_seccion', $lote)
-                        ->first();
-
 
                     return response()->json([
                         'code' => 200,
                         'datos' => [
                             'enfunde' => $enfunde_cinta->total,
-                            'cortados' => $racimos_cortados->total + $perdidas->total,
+                            'cortados' => $racimos_cortados->total,
                             'peso' => $racimos_cortados->peso,
                             'recobro' => (1 - ($racimos_cortados->total / $enfunde_cinta->total)) * 100
                         ],
@@ -469,7 +467,7 @@ class CosechaController extends Controller
                     $perdidas = $this->perdidasCinta($hacienda)
                         ->where('pe_color', $cinta)
                         ->where('pe_seccion', $lote->descripcion)
-                        ->get()->sum(function ($query){
+                        ->get()->sum(function ($query) {
                             return $query->pe_cant;
                         });
 
