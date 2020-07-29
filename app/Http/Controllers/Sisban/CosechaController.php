@@ -118,14 +118,21 @@ class CosechaController extends Controller
         try {
             $hacienda = $hacienda == 3 ? 2 : 1;
             $cinta = $request->get('cinta');
+
+            $fecha = $request->get('fecha');
+            $fecha = strtotime(str_replace('/', '-', $fecha));
+            $fecha = date(config('constants.date'), $fecha);
+
             if (!empty($cinta) && !is_null($cinta)) {
                 $enfunde_cinta = $this->enfundeCintaHacienda($hacienda)
                     ->select('en_color', DB::raw('SUM(en_cantpre + en_cantfut) as total'))
                     ->where('en_color', $cinta)
                     ->groupBy('en_color')->first();
 
-                $racimos_cortados = $this->cosechaHacienda($hacienda)->select(DB::raw('COUNT(cs_peso) as total'))
+                $racimos_cortados = $this->cosechaHacienda($hacienda)
+                    ->select(DB::raw('COUNT(cs_peso) as total'))
                     ->where('cs_color', $cinta)
+                    ->where('cs_fecha', '<>', $fecha)
                     ->first();
 
                 $perdidas = $this->perdidasCinta($hacienda)->select(DB::raw("SUM(pe_cant) as total"))
@@ -133,13 +140,14 @@ class CosechaController extends Controller
                     ->first();
 
                 $cinta = DB::connection('SISBAN')->table('calendario_dole')
-                    ->select('color')
+                    ->select('color', 'idcalendar')
                     ->where('idcalendar', $cinta)
                     ->first();
 
                 return response()->json([
                     'code' => 200,
                     'recobro' => [
+                        'codigo' => $cinta->idcalendar,
                         'cinta' => $cinta->color,
                         'enfunde' => $enfunde_cinta->total,
                         'cortados' => $racimos_cortados->total + $perdidas->total,
@@ -474,7 +482,7 @@ class CosechaController extends Controller
 
                     array_push($cortados, $cortado + $perdidas);
                     array_push($series, $enfunde);
-                    array_push($saldos, ($enfunde - ($cortado + $perdidas)));
+                    array_push($saldos, ($enfunde - ($cortado + $perdidas)) >= 0 ? ($enfunde - ($cortado + $perdidas)) : 0);
                     array_push($labels, $lote->descripcion);
                     //array_push($colors, ["#008ffb", $this->help->getColorHexadecimal(strtolower($cinta_color->color))]);
                     //array_push($colors, "#008ffb");
@@ -491,6 +499,11 @@ class CosechaController extends Controller
                         'name' => 'Recobro',
                         'type' => 'column',
                         'data' => $cortados
+                    ],
+                    'saldos' => [
+                        'name' => 'Saldo',
+                        'type' => 'column',
+                        'data' => $saldos
                     ],
                     'categories' => $labels,
                     'cinta' => $colors
