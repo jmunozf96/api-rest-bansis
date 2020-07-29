@@ -447,6 +447,7 @@ class CosechaController extends Controller
 
                 $series = array();
                 $cortados = array();
+                $saldos = array();
                 $labels = array();
                 $colors = array(); //#F0F043
                 foreach ($lotes as $lote):
@@ -471,9 +472,9 @@ class CosechaController extends Controller
                             return $query->pe_cant;
                         });
 
-                    $recobro = ($enfunde - ($cortado + $perdidas)) >= 0 ? ($enfunde - ($cortado + $perdidas)) : 0;
-                    array_push($cortados, $recobro);
+                    array_push($cortados, $cortado + $perdidas);
                     array_push($series, $enfunde);
+                    array_push($saldos, ($enfunde - ($cortado + $perdidas)));
                     array_push($labels, $lote->descripcion);
                     //array_push($colors, ["#008ffb", $this->help->getColorHexadecimal(strtolower($cinta_color->color))]);
                     //array_push($colors, "#008ffb");
