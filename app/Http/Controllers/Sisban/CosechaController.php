@@ -150,7 +150,8 @@ class CosechaController extends Controller
                         'codigo' => $cinta->idcalendar,
                         'cinta' => $cinta->color,
                         'enfunde' => $enfunde_cinta->total,
-                        'cortados' => $racimos_cortados->total + $perdidas->total,
+                        'caidas' => $perdidas->total,
+                        'cortados' => $racimos_cortados->total,
                         'recobro' => (1 - ($racimos_cortados->total / $enfunde_cinta->total)) * 100
                     ],
                 ], 200);
