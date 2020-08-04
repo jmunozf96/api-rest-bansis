@@ -644,18 +644,43 @@ class EnfundeController extends Controller
                             'reelevo' => 1
                         ])->get()->pluck('id')->toArray();
 
-                    $empleados_semana = array_merge($empleados, $reelevos);
+                    //1 es el Id del grupo de enfunde
+                    $empleados_sin_enfunde = Empleado::whereNotIn('id', $empleados)
+                        ->whereNotIn('id', $reelevos)
+                        ->where('idhacienda', $enfunde->idhacienda)
+                        ->whereHas('inventario', function ($query) use ($enfunde) {
+                            $query->where('idcalendar', $enfunde->idcalendar);
+                            $query->whereHas('material', function ($query) {
+                                $query->whereHas('getGrupo', function ($query) {
+                                    $query->where('id', 1);
+                                });
+                            });
+                        })
+                        ->get()->pluck('id')->toArray();
+
+
+                    $empleados_semana = array_merge($empleados, $reelevos, $empleados_sin_enfunde);
                     $futuro = strtotime(str_replace('/', '-', $enfunde->fecha . "+ 7 days"));
                     $fecha_fut = date(config('constants.date'), $futuro);
                     $calendario_fut = Calendario::where('fecha', $fecha_fut)->first();
 
                     $empleados_traspasos = array();
-
                     foreach ($empleados_semana as $empleado):
                         $inventarios_empleado = InventarioEmpleado::where([
                             'idempleado' => $empleado,
                             'idcalendar' => $enfunde->idcalendar,
                         ])->get();
+
+                        $egreso = EgresoBodega::where([
+                            'idempleado' => $empleado,
+                            'idcalendario' => $enfunde->idcalendar
+                        ])->first();
+
+                        if (is_object($egreso)) {
+                            $egreso->estado = false;
+                            $egreso->updated_at = Carbon::now()->format(config('constants.format_date'));
+                            $egreso->save();
+                        }
 
                         foreach ($inventarios_empleado as $inventario):
                             $inventario_empleado = InventarioEmpleado::where([
@@ -667,7 +692,7 @@ class EnfundeController extends Controller
                             if (is_object($inventario_empleado)) {
                                 $inventario_empleado->estado = 0;
                                 $inventario_empleado->save();
-                                if ($inventario_empleado->sld_final > 0) {
+                                if ($inventario_empleado->sld_final > 0 || $inventario_empleado->tot_devolucion == 0) {
                                     //Si ya se ha registrado un despacho
                                     $inventarios_empleado_siguiente_semana = InventarioEmpleado::where([
                                         'idempleado' => $empleado,

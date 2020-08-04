@@ -124,7 +124,7 @@ class EmpleadoController extends Controller
                     $query->where('idcalendar', $calendario);
                 }
 
-                $query->select('id', 'idempleado', 'idcalendar', 'idmaterial', 'tot_egreso', 'sld_final');
+                $query->select('id', 'idempleado', 'idcalendar', 'idmaterial', 'tot_egreso', 'sld_final', 'sld_inicial', 'tot_devolucion');
             }])
             ->whereHas('inventario', function ($query) use ($hacienda, $calendario, $grupo, $transfer) {
                 if (!is_null($transfer) && !empty($transfer) && $transfer == 1) {

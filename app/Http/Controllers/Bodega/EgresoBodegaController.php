@@ -108,14 +108,14 @@ class EgresoBodegaController extends Controller
 
                     if (is_object($calendario)) {
                         //Se registra la cabecera
-                        $existe_egreso = EgresoBodega::where([
+                        $egreso = EgresoBodega::where([
                             'idcalendario' => $calendario->codigo,
                             'periodo' => $calendario->periodo,
                             'semana' => $calendario->semana,
                             'idempleado' => $cabecera['empleado']['id']
                         ])->first();
 
-                        if (empty($existe_egreso) || is_null($existe_egreso) || !is_object($existe_egreso)) {
+                        if (empty($egreso) || is_null($egreso) || !is_object($egreso)) {
                             $egreso = new EgresoBodega();
                             $egreso->codigo = $this->codigoTransaccion(intval($cabecera['hacienda']));
                             $egreso->fecha = $cabecera['fecha'];
@@ -124,24 +124,27 @@ class EgresoBodegaController extends Controller
                             $egreso->periodo = $calendario->periodo;
                             $egreso->semana = $calendario->semana;
                             $egreso->created_at = Carbon::now()->format(config('constants.format_date'));
-                            $egreso->updated_at = Carbon::now()->format(config('constants.format_date'));
-                            $egreso->save();
 
-                            $cabecera['id'] = $egreso->id;
-                            foreach ($detalle as $item) {
-                                $this->storeDetalleTransaccion($item, $cabecera);
-                            }
                             $mensaje = 'Se registro correctamente la transaccion #' . $egreso->codigo;
                             $this->out['codigo_transaccion'] = $egreso->codigo;
                         } else {
-                            $cabecera['id'] = $existe_egreso->id;
-                            foreach ($detalle as $item) {
+                            $mensaje = 'Se actualizo correctamente la transaccion #' . $egreso->codigo;
+                        }
+
+                        $egreso->updated_at = Carbon::now()->format(config('constants.format_date'));
+                        $egreso->save();
+
+                        $cabecera['id'] = $egreso->id;
+                        foreach ($detalle as $item) {
+                            if (isset($item['transfer'])) {
+                                if (!$this->saldoAcreditadoDebitado((object)$item['dataTransfer'])) {
+                                    throw new \Exception('No se pudo procesar esta transaccion, hay un problema con la transferencia de saldo del empleado ' . $item->dataTransfer->emp_solicitado->descripcion);
+                                }
+                            } else {
                                 $this->storeDetalleTransaccion($item, $cabecera);
                             }
-                            $existe_egreso->updated_at = Carbon::now()->format(config('constants.format_date'));
-                            $existe_egreso->save();
-                            $mensaje = 'Se actualizo correctamente la transaccion #' . $existe_egreso->codigo;
                         }
+
                         $this->out = $this->respuesta_json('success', 200, $mensaje . ', correspondiente al empleado: ' . $cabecera['empleado']['nombres']);
 
                         DB::commit();
@@ -202,6 +205,7 @@ class EgresoBodegaController extends Controller
                     $egreso_detalle->save();
                 }
             }
+
             return true;
         } catch (\Exception $ex) {
             return false;
@@ -302,7 +306,7 @@ class EgresoBodegaController extends Controller
                             $query->with('materialdetalle');
                         }])
                         ->first();
-                    if(is_object($egreso)){
+                    if (is_object($egreso)) {
                         $this->out = $this->respuesta_json('success', 200, 'Datos encontrados!');
                         $this->out['egreso'] = $egreso;
                         return response()->json($this->out, $this->out['code']);
@@ -324,11 +328,11 @@ class EgresoBodegaController extends Controller
             $detalle = EgresoBodegaDetalle::where(['id' => $id])->first();
             if (is_object($detalle)) {
                 $detalle = EgresoBodegaDetalle::where('id', $id)
-                    ->with(['destino' => function ($query) {
+                    ->with(['debito_transfer' => function ($query) {
                         $query->with(['materialdetalle' => function ($query) {
                             $query->select('id', 'descripcion');
                         }]);
-                        $query->select('id', 'idegreso', 'idmaterial', 'movimiento', 'fecha_salida', 'cantidad', 'id_origen');
+                        $query->select('id', 'idegreso', 'idmaterial', 'movimiento', 'fecha_salida', 'cantidad', 'id_origen', 'debito');
                         $query->with(['cabeceraEgreso' => function ($query) {
                             $query->select('id', 'idcalendario', 'idempleado');
                             $query->with(['egresoEmpleado' => function ($query) {
@@ -336,11 +340,11 @@ class EgresoBodegaController extends Controller
                             }]);
                         }]);
                     }])
-                    ->with(['compartido' => function ($query) {
+                    ->with(['credito_transfer' => function ($query) {
                         $query->with(['materialdetalle' => function ($query) {
                             $query->select('id', 'descripcion');
                         }]);
-                        $query->select('id', 'idegreso', 'idmaterial', 'movimiento', 'fecha_salida', 'cantidad');
+                        $query->select('id', 'idegreso', 'idmaterial', 'movimiento', 'fecha_salida', 'cantidad', 'id_origen', 'debito');
                         $query->with(['cabeceraEgreso' => function ($query) {
                             $query->select('id', 'idcalendario', 'idempleado');
                             $query->with(['egresoEmpleado' => function ($query) {
@@ -358,93 +362,143 @@ class EgresoBodegaController extends Controller
         }
     }
 
-    public function preparedestroyTransferencia(Request $request)
+    public function deleteCreditSaldo(Request $request)
     {
         try {
             $id = $request->get('id');
-            $detalle = EgresoBodegaDetalle::where('id', $id)->first();
-
+            $credito = EgresoBodegaDetalle::where('id', $id)->first();
             DB::beginTransaction();
-            if ($this->destroyTransferencia($detalle, true)) {
-                $detalle_origen = EgresoBodegaDetalle::where('id_origen', $detalle->id)->first();
-                $detalle->delete();
+            if (is_object($credito)) {
+                $total_credito = $credito->cantidad;
+                //Sacar el id del empleado, el calendario del movimiento, material.
+                $cabecera_credito = EgresoBodega::where(['id' => $credito->idegreso])->first();
 
-                $cabecera = EgresoBodega::where('id', $detalle->idegreso)->first();
-                $detalles = EgresoBodegaDetalle::where('idegreso', $cabecera->id)->get();
-                if (count($detalles) == 0) {
-                    $cabecera->delete();
-                }
+                if (is_object($cabecera_credito)) {
+                    $empleado_credito = $cabecera_credito->idempleado;
+                    $calendario_credito = $cabecera_credito->idcalendario;
+                    $material_credito = $credito->idmaterial;
 
-                if ($this->destroyTransferencia($detalle_origen, true)) {
-                    $detalle_origen->delete();
+                    //Buscamos el inventario donde vamos a restar el saldo que se acredito.
+                    $inventario = InventarioEmpleado::where([
+                        'idempleado' => $empleado_credito,
+                        'idcalendar' => $calendario_credito,
+                        'idmaterial' => $material_credito
+                    ])->first();
 
-                    $cabecera = EgresoBodega::where('id', $detalle_origen->idegreso)->first();
-                    $detalles = EgresoBodegaDetalle::where('idegreso', $cabecera->id)->get();
-                    if (count($detalles) == 0) {
-                        $cabecera->delete();
+                    if (is_object($inventario)) {
+                        //Debitamos el saldo
+                        $inventario->tot_egreso -= $total_credito;
+                        if ($inventario->tot_egreso >= 0) {
+                            $procesado = false;
+                            $inventario->sld_final = ($inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_devolucion;
+                            if ($inventario->sld_final > 0) {
+                                $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                $inventario->save();
+                                $procesado = true;
+                            } else if ($inventario->sld_final == 0) {
+                                $inventario->delete();
+                                $procesado = true;
+                            }
+
+                            if ($procesado) {
+                                //Una vez procesado eliminamos el credito
+                                $credito->delete();
+
+                                //Consultar si fue mi ultimo registro
+                                $ultimo_registro = EgresoBodegaDetalle::where(['idegreso' => $cabecera_credito->id])->get();
+                                if (count($ultimo_registro) == 0) {
+                                    $cabecera_credito->delete();
+                                }
+
+                                //Acreditamos el saldo debitado
+                                $debito = EgresoBodegaDetalle::where(['id' => $credito->id_origen])->first();
+                                if (is_object($debito)) {
+                                    $total_debito = $debito->cantidad;
+                                    if ($total_debito >= $total_credito) {
+                                        $debito->cantidad -= $total_credito;
+
+                                        if ($debito->cantidad == 0) {
+                                            $debito->delete();
+                                        } else {
+                                            $debito->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                            $debito->save();
+                                        }
+
+                                        $cabecera_debito = EgresoBodega::where(['id' => $debito->idegreso])->first();
+                                        if (is_object($cabecera_debito)) {
+                                            $empleado_debito = $cabecera_debito->idempleado;
+                                            $calendario_debito = $cabecera_debito->idcalendario;
+                                            $material_debito = $debito->idmaterial;
+                                            //Buscamos el inventario donde vamos a restar el saldo que se acredito.
+                                            $inventario_debito = InventarioEmpleado::where([
+                                                'idempleado' => $empleado_debito,
+                                                'idcalendar' => $calendario_debito,
+                                                'idmaterial' => $material_debito
+                                            ])->first();
+
+                                            if (is_object($inventario_debito)) {
+                                                //Subimos inventario
+                                                $inventario_debito->tot_egreso += $total_credito;
+                                            } else {
+                                                //Generamos un inventario
+                                                $emplado = Empleado::where(['id' => $empleado_debito])->first();
+
+                                                $inventario_debito = new InventarioEmpleado();
+                                                $inventario_debito->codigo = $this->codigoTransaccionInventario($emplado->idhacienda);
+                                                $inventario_debito->idcalendar = $calendario_debito;
+                                                $inventario_debito->idempleado = $empleado_debito;
+                                                $inventario_debito->idmaterial = $material_debito;
+                                                $inventario_debito->sld_inicial = 0;
+                                                $inventario_debito->tot_egreso = $total_credito;
+                                                $inventario_debito->tot_devolucion = 0;
+                                                $inventario_debito->created_at = Carbon::now()->format(config('constants.format_date'));
+                                            }
+
+                                            $inventario_debito->sld_final = ($inventario_debito->sld_inicial + $inventario_debito->tot_egreso) - $inventario_debito->tot_devolucion;
+                                            $inventario_debito->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                            $inventario_debito->save();
+
+                                            //Consultar si fue mi ultimo registro
+                                            $ultimo_registro = EgresoBodegaDetalle::where(['idegreso' => $cabecera_debito->id])->get();
+                                            if (count($ultimo_registro) == 0) {
+                                                $cabecera_debito->delete();
+                                            }
+
+                                            $this->out = $this->respuesta_json('success', 200, 'Movimiento eliminado con exito!');
+                                            DB::commit();
+                                            return response()->json($this->out, 200);
+
+                                        } else {
+                                            throw new \Exception('Error, no se encontro la transaccion principal del debitante.');
+                                        }
+                                    } else {
+                                        throw new \Exception('Error, el debito no puede quedar negativo.');
+                                    }
+                                } else {
+                                    throw new \Exception('Error, no se ha encontrado el origen de este credito, vuelva a intentarlo mas tarde.');
+                                }
+                            } else {
+                                throw new \Exception('Error, el saldo no puede ser negativo.');
+                            }
+
+                        } else {
+                            throw new \Exception('Error, el egreso total no puede ser menor despues de eliminar el saldo acreditado.');
+                        }
+                    } else {
+                        throw new \Exception('Error, no se ha encontrado el inventario donde se acredito el saldo.');
                     }
-
-                    $this->out = $this->respuesta_json('success', 200, 'Movimiento eliminado con exito!');
-                    DB::commit();
-                    return response()->json($this->out, 200);
+                } else {
+                    throw new \Exception('No se encontro la transaccion principal del acreditado.');
                 }
+            } else {
+                throw new \Exception('No existe este movimiento.');
             }
-            throw new \Exception('No se pudo eliminar el movimiento');
         } catch (\Exception $ex) {
             DB::rollBack();
             $this->out['message'] = $ex->getMessage();
             return response()->json($this->out, 500);
         }
 
-    }
-
-    public function destroyTransferencia($detalle, $solicita = true)
-    {
-        try {
-            if (is_object($detalle)) {
-                $cabecera = EgresoBodega::where('id', $detalle->idegreso)->first();
-                //Restar a mi inventario
-                $inventario = InventarioEmpleado::where([
-                    'idempleado' => $cabecera->idempleado,
-                    'idcalendar' => $cabecera->idcalendario,
-                    'idmaterial' => $detalle->idmaterial
-                ])->first();
-
-                if (!is_object($inventario)) {
-                    $emplado = Empleado::where('id', $cabecera->idempleado)->first();
-                    $inventario = new InventarioEmpleado();
-                    $inventario->codigo = $this->codigoTransaccionInventario($emplado->idhacienda);
-                    $inventario->idcalendar = $cabecera->idcalendario;
-                    $inventario->idempleado = $emplado->id;
-                    $inventario->idmaterial = $detalle->idmaterial;
-                    $inventario->sld_inicial = 0;
-                    $inventario->created_at = Carbon::now()->format(config('constants.format_date'));
-                    $inventario->tot_devolucion = 0;
-                }
-
-                if ($solicita) {
-                    $inventario->tot_egreso -= $detalle->cantidad;
-                } else {
-                    $inventario->tot_egreso += $detalle->cantidad;
-                }
-
-                $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
-
-                if ($inventario->sld_final < 0) {
-                    return false;
-                }
-
-                $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
-                $inventario->save();
-
-                if ($inventario->sld_final == 0) {
-                    $inventario->delete();
-                }
-            }
-            return true;
-        } catch (\Exception $ex) {
-            return false;
-        }
     }
 
     public function codigoTransaccion($hacienda = 1)
@@ -455,172 +509,185 @@ class EgresoBodegaController extends Controller
         return $codigo;
     }
 
-    public function saldotransfer(Request $request)
+    public function saldoAcreditadoDebitado($dataTransfer)
     {
-        try {
-            $json = $request->input('json');
-            $params = json_decode($json);
-            $params_array = json_decode($json, true);
-            if (is_object($params) && !empty($params)) {
-                $validacion = Validator::make($params_array, [
-                    'emp_solicitado' => 'required',
-                    'emp_recibe' => 'required',
-                    'id_inventario_tomado' => 'required',
-                    'cantidad' => 'required'
-                ], [
-                    'emp_solicitado.required' => 'El empleado al que se le solicita el traspaso es requerido',
-                    'emp_recibe.required' => 'El empleado que recibe el traspaso es requerido',
-                    'id_inventario_tomado.required' => 'No se ha tomado ningun inventario',
-                    'cantidad.required' => 'No hay cantidad',
-                ]);
+        if (is_object($dataTransfer) && !empty($dataTransfer)) {
+            $params_array = [
+                'emp_solicitado' => $dataTransfer->emp_solicitado,
+                'emp_recibe' => $dataTransfer->emp_recibe,
+                'hacienda' => $dataTransfer->hacienda,
+                'id_inventario_tomado' => $dataTransfer->id_inventario_tomado,
+                'cantidad' => $dataTransfer->cantidad,
+                'sld_final' => $dataTransfer->sld_final,
+                'time' => $dataTransfer->time
+            ];
 
-                if (!$validacion->fails()) {
-                    DB::beginTransaction();
-                    $timestamp = strtotime(str_replace('/', '-', $params_array['time']));
-                    $params_array['time'] = date(config('constants.date'), $timestamp);
-                    //Transferencia
-                    //Buscamos el dato de donde se va a transferir
-                    $inventario = InventarioEmpleado::where('id', $params_array['id_inventario_tomado'])->first();
+            $validacion = Validator::make($params_array, [
+                'emp_solicitado' => 'required',
+                'emp_recibe' => 'required',
+                'id_inventario_tomado' => 'required',
+                'cantidad' => 'required'
+            ], [
+                'emp_solicitado.required' => 'El empleado al que se le solicita el traspaso es requerido',
+                'emp_recibe.required' => 'El empleado que recibe el traspaso es requerido',
+                'id_inventario_tomado.required' => 'No se ha tomado ningun inventario',
+                'cantidad.required' => 'No hay cantidad',
+            ]);
 
-                    if (is_object($inventario)) {
-                        $inventario->tot_egreso -= $params_array['cantidad'];
-                        $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
-                        $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
-                        $inventario->save();
+            if (!$validacion->fails()) {
+                $timestamp = strtotime(str_replace('/', '-', $params_array['time']));
+                $params_array['time'] = date(config('constants.date'), $timestamp);
 
-                    }
+                //Transferencia
+                //Buscamos el dato de donde se va a transferir
+                $inventario = InventarioEmpleado::where('id', $params_array['id_inventario_tomado'])->first();
+                if (is_object($inventario)) {
+                    //Se le resta del inventario
+                    $inventario->tot_egreso -= $params_array['cantidad'];
+                    $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
+                    $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
+                    $inventario->save();
+                }
 
-                    $calendario = Calendario::where('fecha', $params_array['time'])->first();
+                $calendario = Calendario::where('fecha', $params_array['time'])->first();
 
-                    $egreso = null;
-                    $movimiento = null;
-                    $bandera = true;
-                    do {
-                        //Generamos el movimiento de transferencia (-)
-                        $egreso = EgresoBodega::where([
-                            'idempleado' => $params_array['emp_solicitado']['id'],
-                            'idcalendario' => $inventario->idcalendar
-                        ])->first();
+                $egreso = null;
+                $movimiento = null;
 
-                        if (is_object($egreso)) {
-                            $movimiento = new EgresoBodegaDetalle();
-                            $movimiento->idegreso = $egreso->id;
-                            $movimiento->idmaterial = $inventario->idmaterial;
-                            $movimiento->movimiento = 'TRASP-SAL';
-                            $movimiento->fecha_salida = $params_array['time'];
-                            $movimiento->cantidad = -$params_array['cantidad'];
-                            $movimiento->created_at = Carbon::now()->format(config('constants.format_date'));
-                            $movimiento->updated_at = Carbon::now()->format(config('constants.format_date'));
-                            $movimiento->save();
-                            $bandera = false;
-                            //Si ya existe un movimiento con esa misma fecha editarlo
-                        } else {
-                            $egreso = new EgresoBodega();
-                            $egreso->codigo = $this->codigoTransaccion($params_array['emp_solicitado']['idhacienda']);
-                            $egreso->idcalendario = $calendario->codigo;
-                            $egreso->periodo = $calendario->periodo;
-                            $egreso->semana = $calendario->semana;
-                            $egreso->idempleado = $params_array['emp_solicitado']['id'];
-                            $egreso->fecha = $params_array['time'];
-                            $egreso->created_at = Carbon::now()->format(config('constants.format_date'));
-                            $egreso->updated_at = Carbon::now()->format(config('constants.format_date'));
-                            $egreso->save();
-                        }
-                    } while (is_null($egreso) || $bandera);
+                //Generamos el movimiento de transferencia (-)
+                $egreso = EgresoBodega::where([
+                    'idempleado' => $params_array['emp_solicitado']['id'],
+                    'idcalendario' => $calendario->codigo
+                ])->first();
+
+                if (!is_object($egreso)) {
+                    $egreso = new EgresoBodega();
+                    $egreso->codigo = $this->codigoTransaccion($params_array['emp_solicitado']['idhacienda']);
+                    $egreso->idcalendario = $calendario->codigo;
+                    $egreso->periodo = $calendario->periodo;
+                    $egreso->semana = $calendario->semana;
+                    $egreso->idempleado = $params_array['emp_solicitado']['id'];
+                    $egreso->fecha = $params_array['time'];
+                    $egreso->created_at = Carbon::now()->format(config('constants.format_date'));
+                    $egreso->updated_at = Carbon::now()->format(config('constants.format_date'));
+                    $egreso->save();
+                }
+
+                $movimiento = EgresoBodegaDetalle::where([
+                    'idmaterial' => $inventario->idmaterial,
+                    'movimiento' => 'DEBIT-SAL',
+                    'debito' => true
+                ])->first();
+
+                if (!is_object($movimiento)) {
+                    $movimiento = new EgresoBodegaDetalle();
+                    $movimiento->idegreso = $egreso->id;
+                    $movimiento->idmaterial = $inventario->idmaterial;
+                    $movimiento->movimiento = 'DEBIT-SAL';
+                    $movimiento->debito = true;
+                    $movimiento->fecha_salida = $params_array['time'];
+                    $movimiento->cantidad = $params_array['cantidad'];
+                    $movimiento->created_at = Carbon::now()->format(config('constants.format_date'));
+                } else {
+                    $movimiento->cantidad += $params_array['cantidad'];
+                }
+
+                $movimiento->updated_at = Carbon::now()->format(config('constants.format_date'));
+                $movimiento->save();
 
 
-                    if ($inventario->tot_egreso <= 0) {
-                        $inventario->delete();
-                    }
+                if ($inventario->sld_final == 0) {
+                    $inventario->delete();
+                }
 
-                    //Pasamos el saldo al inventario correspondiente como nuevo item,
-                    $existe_inventario_transferir = InventarioEmpleado::where([
-                        'idcalendar' => $calendario->codigo,
-                        'idempleado' => $params_array['emp_recibe']['id'],
-                        'idmaterial' => $inventario->idmaterial
-                    ])->first();
+                //Pasamos el saldo al inventario correspondiente como nuevo item,
+                $inventario_traspaso = InventarioEmpleado::where([
+                    'idcalendar' => $calendario->codigo,
+                    'idempleado' => $params_array['emp_recibe']['id'],
+                    'idmaterial' => $inventario->idmaterial
+                ])->first();
 
-                    if (!is_object($existe_inventario_transferir) && empty($existe_inventario_transferir)) {
-                        $inventario_traspaso = new InventarioEmpleado();
-                        $inventario_traspaso->codigo = $this->codigoTransaccionInventario($params_array['hacienda']);
-                        $inventario_traspaso->idcalendar = $calendario->codigo;
-                        $inventario_traspaso->idempleado = $params_array['emp_recibe']['id'];
-                        $inventario_traspaso->idmaterial = $inventario->idmaterial;
-                        $inventario_traspaso->sld_inicial = 0;
-                        $inventario_traspaso->tot_egreso = $params_array['cantidad'];
-                        $inventario_traspaso->tot_devolucion = 0;
-                        $inventario_traspaso->sld_final = (intval($inventario_traspaso->sld_inicial) + intval($inventario_traspaso->tot_egreso)) - intval($inventario_traspaso->tot_devolucion);
-                        $inventario_traspaso->created_at = Carbon::now()->format(config('constants.format_date'));
-                        $inventario_traspaso->updated_at = Carbon::now()->format(config('constants.format_date'));
-                        $inventario_traspaso->save();
-                    } else {
-                        $existe_inventario_transferir->tot_egreso += $params_array['cantidad'];
-                        $existe_inventario_transferir->sld_final = (intval($existe_inventario_transferir->sld_inicial) + intval($existe_inventario_transferir->tot_egreso)) - intval($existe_inventario_transferir->tot_devolucion);
-                        $existe_inventario_transferir->updated_at = Carbon::now()->format(config('constants.format_date'));
-                        $existe_inventario_transferir->save();
-                    }
-                    //si la fecha ya esta registrada con ese detalle se lo edita, caso contrario va como nuevo
-                    //Generamos el movimiento de transferencia (+)
-                    $egreso_recibido = EgresoBodega::where([
-                        'idempleado' => $params_array['emp_recibe']['id'],
-                        'idcalendario' => $calendario->codigo
-                    ])->first();
+                if (!is_object($inventario_traspaso)) {
+                    $inventario_traspaso = new InventarioEmpleado();
+                    $inventario_traspaso->codigo = $this->codigoTransaccionInventario($params_array['hacienda']);
+                    $inventario_traspaso->idcalendar = $calendario->codigo;
+                    $inventario_traspaso->idempleado = $params_array['emp_recibe']['id'];
+                    $inventario_traspaso->idmaterial = $inventario->idmaterial;
+                    $inventario_traspaso->sld_inicial = 0;
+                    $inventario_traspaso->tot_egreso = $params_array['cantidad'];
+                    $inventario_traspaso->tot_devolucion = 0;
+                    $inventario_traspaso->created_at = Carbon::now()->format(config('constants.format_date'));
+                } else {
+                    $inventario_traspaso->tot_egreso += $params_array['cantidad'];
+                }
 
+                $inventario_traspaso->sld_final = (intval($inventario_traspaso->sld_inicial) + intval($inventario_traspaso->tot_egreso)) - intval($inventario_traspaso->tot_devolucion);
+                $inventario_traspaso->updated_at = Carbon::now()->format(config('constants.format_date'));
+                $inventario_traspaso->save();
+
+                //si la fecha ya esta registrada con ese detalle se lo edita, caso contrario va como nuevo
+                //Generamos el movimiento de transferencia (+)
+                $egreso_recibido = EgresoBodega::where([
+                    'idempleado' => $params_array['emp_recibe']['id'],
+                    'idcalendario' => $calendario->codigo
+                ])->first();
+
+                if (!is_object($egreso_recibido)) {
+                    //crear el movimiento con cabecera y detalle completo
+                    $egreso_recibido = new EgresoBodega();
+                    $egreso_recibido->codigo = $this->codigoTransaccion($params_array['hacienda']);
+                    $egreso_recibido->idcalendario = $calendario->codigo;
+                    $egreso_recibido->periodo = $calendario->periodo;
+                    $egreso_recibido->semana = $calendario->semana;
+                    $egreso_recibido->fecha = $params_array['time'];
+                    $egreso_recibido->idempleado = $params_array['emp_recibe']['id'];
+                    $egreso_recibido->created_at = Carbon::now()->format(config('constants.format_date'));
+                    $egreso_recibido->updated_at = Carbon::now()->format(config('constants.format_date'));
+                    $egreso_recibido->save();
+                }
+
+                //Cada que se hace un credito se lo registra como un nuevo egreso
+                /*$detalle = EgresoBodegaDetalle::where([
+                    'movimiento' => 'CREDIT-SAL',
+                    'fecha_salida' => $params_array['time'],
+                    'idegreso' => $egreso_recibido->id,
+                    'id_origen' => $movimiento->id,
+                    'debito' => false
+                ])->first();
+
+                if (!is_object($detalle)) {
                     $detalle = new EgresoBodegaDetalle();
-
-                    if (!is_object($egreso_recibido)) {
-                        //crear el movimiento con cabecera y detalle completo
-                        $cabecera = new EgresoBodega();
-                        $cabecera->codigo = $this->codigoTransaccion($params_array['hacienda']);
-                        $cabecera->idcalendario = $inventario->idcalendar;
-                        $cabecera->periodo = $calendario->periodo;
-                        $cabecera->semana = $calendario->semana;
-                        $cabecera->fecha = $params_array['time'];
-                        $cabecera->idempleado = $params_array['emp_recibe']['id'];
-                        $cabecera->created_at = Carbon::now()->format(config('constants.format_date'));
-                        $cabecera->updated_at = Carbon::now()->format(config('constants.format_date'));
-                        $cabecera->save();
-                        $detalle->idegreso = $cabecera->id;
-                    } else {
-                        $detalle->idegreso = $egreso_recibido->id;
-                    }
-
+                    $detalle->idegreso = $egreso_recibido->id;
                     $detalle->idmaterial = $inventario->idmaterial;
-                    $detalle->movimiento = 'TRASP-SAL';
+                    $detalle->movimiento = 'CREDIT-SAL';
+                    $detalle->debito = false;
                     $detalle->fecha_salida = $params_array['time'];
                     $detalle->cantidad = $params_array['cantidad'];
                     $detalle->id_origen = $movimiento->id;
                     $detalle->created_at = Carbon::now()->format(config('constants.format_date'));
-                    $detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
-                    $detalle->save();
-
-                    DB::commit();
-                    $this->out = $this->respuesta_json('success', 200, 'Movimiento registrado con exito.');
-                    return response()->json($this->out, 200);
-
                 } else {
-                    $this->out['code'] = 400;
-                    $this->out['errors'] = $validacion->errors()->all();
-                    throw new \Exception('No se han recibido todos los parametros solicitados.');
-                }
-            }
-            $this->out['code'] = 500;
-            throw new \Exception('No se han recibido parametros');
-        } catch (\Exception $ex) {
-            $this->out['message'] = $ex->getMessage();
-            return response()->json($this->out, $this->out['code']);
-        }
-    }
+                    $detalle->cantidad += $params_array['cantidad'];
+                }*/
 
-    public function movimientos($descripcion)
-    {
-        switch ($descripcion) {
-            case 'TRASP-SAL':
-                //Movimiento de saldos por empleados
-                //Empleado A -> Empleado B
-                //Registrar movimiento para bajar saldo -> Registrar movimiento para aumentar el saldo
-                break;
+                $detalle = new EgresoBodegaDetalle();
+                $detalle->idegreso = $egreso_recibido->id;
+                $detalle->idmaterial = $inventario->idmaterial;
+                $detalle->movimiento = 'CREDIT-SAL';
+                $detalle->debito = false;
+                $detalle->fecha_salida = $params_array['time'];
+                $detalle->cantidad = $params_array['cantidad'];
+                $detalle->id_origen = $movimiento->id;
+                $detalle->created_at = Carbon::now()->format(config('constants.format_date'));
+                $detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
+                $detalle->save();
+
+                return true;
+
+            } else {
+                return false;
+            }
         }
+        return false;
     }
 
     public function show($id)
@@ -652,18 +719,12 @@ class EgresoBodegaController extends Controller
     public function destroy($id)
     {
         try {
+            $status = false;
             $eliminar_cabecera = false;
             $detalle_egreso = EgresoBodegaDetalle::where(['id' => $id, 'movimiento' => 'EGRE-ART'])->first();
             if (is_object($detalle_egreso)) {
                 DB::beginTransaction();
-
-                $status = false;
-
-                //Si este material ha tenido movimientos
-                if ($this->testMovimientosDetalle($detalle_egreso))
-                    throw new \Exception('No se puede procesar esta solicitud, se ha transferido un saldo de este material.');
-
-                $status = $detalle_egreso->delete();
+                $detalle_egreso->delete();
 
                 $egresos = EgresoBodegaDetalle::where('idegreso', $detalle_egreso->idegreso)->get();
                 if (count($egresos) == 0)
@@ -677,21 +738,23 @@ class EgresoBodegaController extends Controller
                     'idempleado' => $egreso->idempleado,
                     'idmaterial' => $detalle_egreso->idmaterial
                 ])->first();
-                $inventario->tot_egreso = intval($inventario->tot_egreso) - intval($detalle_egreso->cantidad);
-                $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
 
-                if ($inventario->sld_final < 0) {
-                    throw new \Exception('No se puede eliminar este movimiento');
+                if (is_object($inventario)) {
+                    $inventario->tot_egreso = intval($inventario->tot_egreso) - intval($detalle_egreso->cantidad);
+                    $inventario->sld_final = (intval($inventario->sld_inicial) + intval($inventario->tot_egreso)) - intval($inventario->tot_devolucion);
+
+                    if ($inventario->sld_final < 0) {
+                        throw new \Exception('No se puede eliminar este movimiento, su saldo es menor al que se esta eliminando.');
+                    }
+
+                    $status = $inventario->save();
+
+                    if (intval($inventario->sld_final) === 0)
+                        $status = $inventario->delete();
                 }
 
-                $status = $inventario->save();
-
-
-                if (intval($inventario->sld_final) === 0)
-                    $status = $inventario->delete();
-
                 if (!$status) {
-                    throw new \Exception('No se puede eliminar el registro.');
+                    throw new \Exception('No se puede eliminar el registro, su saldo se encuentra distribuido.');
                 }
 
                 if ($eliminar_cabecera) {
@@ -725,16 +788,10 @@ class EgresoBodegaController extends Controller
     public function testMovimientosDetalle($detalle_egreso)
     {
         $cantidad_transferidas = 0;
-        $egresos = EgresoBodegaDetalle::where('idegreso', $detalle_egreso->idegreso)->get();
-        foreach ($egresos as $egreso) {
-            if ($egreso->movimiento == 'TRASP-SAL'
-                && $egreso->idmaterial == $detalle_egreso->idmaterial
-                && $egreso->id_origen == null) {
-                $cantidad_transferidas += intval($egreso->cantidad);
-            }
-        }
+        $egresos = EgresoBodegaDetalle::where('id_origen', $detalle_egreso->id)->get();
+        $cantidad_transferidas = count($egresos);
 
-        if ($cantidad_transferidas != 0) {
+        if ($cantidad_transferidas > 0) {
             return true;
         }
 

@@ -18,14 +18,14 @@ class EgresoBodegaDetalle extends Model
         return $this->hasOne('App\Models\Bodega\Material', 'id', 'idmaterial');
     }
 
-    public function compartido()
+    public function debito_transfer()
     {
         return $this->hasOne('App\Models\Bodega\EgresoBodegaDetalle', 'id', 'id_origen');
     }
 
-    public function destino()
+    public function credito_transfer()
     {
-        return $this->hasOne('App\Models\Bodega\EgresoBodegaDetalle', 'id_origen', 'id');
+        return $this->hasMany('App\Models\Bodega\EgresoBodegaDetalle', 'id_origen', 'id');
     }
 
     public $timestamps = false;

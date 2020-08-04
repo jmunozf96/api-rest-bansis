@@ -96,8 +96,8 @@ Route::get('/api/bansis-app/index.php/search/materiales', 'Bodega\MaterialContro
 Route::apiResource('api/bansis-app/index.php/egreso-bodega', 'Bodega\EgresoBodegaController');
 Route::get('api/bansis-app/index.php/search-egreso', 'Bodega\EgresoBodegaController@getTransaccion');
 Route::get('api/bansis-app/index.php/show-transaction', 'Bodega\EgresoBodegaController@showTransferencia');
-Route::delete('api/bansis-app/index.php/delete-transaction', 'Bodega\EgresoBodegaController@preparedestroyTransferencia');
-Route::post('api/bansis-app/index.php/egreso-bodega/saldos/transfer', 'Bodega\EgresoBodegaController@saldotransfer');
+Route::delete('api/bansis-app/index.php/delete-transaction', 'Bodega\EgresoBodegaController@deleteCreditSaldo');
+Route::post('api/bansis-app/index.php/egreso-bodega/saldos/transfer', 'Bodega\EgresoBodegaController@saldoAcreditadoDebitado');
 
 //Api Lotes Hacienda
 Route::apiResource('api/bansis-app/index.php/lote', 'Hacienda\LoteController');
