@@ -58,6 +58,8 @@ class EgresoBodegaController extends Controller
                     $query->select('id', 'descripcion');
                 }]);
             }])
+                ->orderBy('idcalendario', 'desc')
+                ->orderBy('estado', 'DESC')
                 ->orderBy('updated_at', 'DESC')
                 ->paginate(7);
 
