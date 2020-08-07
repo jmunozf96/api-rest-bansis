@@ -598,9 +598,9 @@ class EgresoBodegaController extends Controller
                 $movimiento->save();
 
 
-                if ($inventario->sld_final == 0) {
+                /*if ($inventario->sld_final == 0) {
                     $inventario->delete();
-                }
+                }*/
 
                 //Pasamos el saldo al inventario correspondiente como nuevo item,
                 $inventario_traspaso = InventarioEmpleado::where([
