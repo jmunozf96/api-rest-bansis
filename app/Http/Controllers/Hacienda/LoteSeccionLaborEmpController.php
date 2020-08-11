@@ -114,12 +114,31 @@ class LoteSeccionLaborEmpController extends Controller
                         foreach ($detalle as $item):
                             $timestamp = strtotime(str_replace('/', '-', $item['fecha']));
                             $item['fecha'] = date(config('constants.date'), $timestamp);
-                            $laborSeccionEmpleadoDetalle = LoteSeccionLaborEmpDet::where([
-                                'idcabecera' => $laborSeccionEmpleado->id,
-                                'idlote_sec' => $item['loteSeccion']['id'],
-                                'estado' => true
-                            ])->first();
-                            if (!is_object($laborSeccionEmpleadoDetalle) && empty($laborSeccionEmpleadoDetalle)) {
+                            $new_registro = false;
+
+                            if (isset($item['idDB']) && $item['estado']) {
+                                $laborSeccionEmpleadoDetalle = LoteSeccionLaborEmpDet::where([
+                                    'id' => $item['idDB'],
+                                    'estado' => true
+                                ])->first();
+
+                                if (is_object($laborSeccionEmpleadoDetalle)) {
+                                    if ($laborSeccionEmpleadoDetalle->estado) {
+                                        $laborSeccionEmpleadoDetalle->has = $item['hasDistribucion'];
+                                        $laborSeccionEmpleadoDetalle->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                        $status = $laborSeccionEmpleadoDetalle->save();
+                                    } else {
+                                        //$enfunde = LoteSeccionLaborEmpDet::where('id', $item['idDB'])->whereHas('enfundeDetalle')->get();
+                                    }
+                                } else {
+                                    $new_registro = true;
+                                }
+
+                            } else if (!isset($item['idDB']) && $item['estado']) {
+                                $new_registro = true;
+                            }
+
+                            if ($new_registro) {
                                 $laborSeccionEmpleadoDetalle = new LoteSeccionLaborEmpDet();
                                 $laborSeccionEmpleadoDetalle->fecha_apertura = $item['fecha'];
                                 $laborSeccionEmpleadoDetalle->idcabecera = $laborSeccionEmpleado->id;
@@ -127,12 +146,9 @@ class LoteSeccionLaborEmpController extends Controller
                                 $laborSeccionEmpleadoDetalle->has = $item['hasDistribucion'];
                                 $laborSeccionEmpleadoDetalle->created_at = Carbon::now()->format(config('constants.format_date'));
                                 $laborSeccionEmpleadoDetalle->updated_at = Carbon::now()->format(config('constants.format_date'));
-                            } else {
-                                $laborSeccionEmpleadoDetalle->has = $item['hasDistribucion'];
-                                $laborSeccionEmpleadoDetalle->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                $status = $laborSeccionEmpleadoDetalle->save();
                             }
 
-                            $status = $laborSeccionEmpleadoDetalle->save();
 
                             if (!$status) {
                                 throw new \Exception('No se pudo completar la transaccion');
@@ -292,20 +308,26 @@ class LoteSeccionLaborEmpController extends Controller
         try {
             DB::beginTransaction();
             $detalle = LoteSeccionLaborEmpDet::where('id', $id)->first();
-            $detalle->estado = false;
-            $detalle->save();
-            DB::commit();
 
-            DB::beginTransaction();
             if (is_object($detalle) && !empty($detalle)) {
-                $cabecera = $detalle->idcabecera;
-                LoteSeccionLaborEmpDet::destroy($id);
-                $detalles_restantes = LoteSeccionLaborEmpDet::where('idcabecera', $cabecera)->get();
-                if (count($detalles_restantes) == 0) {
-                    LoteSeccionLaborEmp::where('id', $cabecera)->update(['estado' => false]);
+                $enfunde = LoteSeccionLaborEmpDet::where('id', $id)->whereHas('enfundeDetalle')->get();
+                if (count($enfunde) > 0) {
+                    $detalle->estado = false;
+                    $detalle->save();
+                    $this->out = $this->respuesta_json('success', 200, 'Seccion contiene registros de enfunde.');
+                    $this->out['destroy'] = false;
+                } else {
+                    $cabecera = $detalle->idcabecera;
+                    LoteSeccionLaborEmpDet::destroy($id);
+                    $detalles_restantes = LoteSeccionLaborEmpDet::where('idcabecera', $cabecera)->get();
+                    if (count($detalles_restantes) == 0) {
+                        LoteSeccionLaborEmp::where('id', $cabecera)->update(['estado' => false]);
+                    }
+                    $this->out = $this->respuesta_json('success', 200, 'Dato eliminado correctamente.');
+                    $this->out['destroy'] = true;
                 }
+
                 DB::commit();
-                $this->out = $this->respuesta_json('success', 200, 'Dato eliminado correctamente.');
                 return response()->json($this->out, $this->out['code']);
             } else {
                 throw new \Exception('No existen datos con el parametro enviado.');
