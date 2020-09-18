@@ -143,3 +143,8 @@ Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lote', 'Sisban
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lotes', 'Sisban\CosechaController@getLotesCortadosDia');
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cajas-dia', 'Sisban\CosechaController@getCajasDia');
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/lotesRecobro', 'Sisban\CosechaController@getLotesRecobro');
+
+
+//Api Android
+Route::apiResource('api/bansis-app/index.php/fitos/coordenadas', 'Sistema\CoordenadasFitoController');
+Route::apiResource('api/bansis-app/index.php/cosecha/manos', 'Sistema\ManosRecusadasController');
