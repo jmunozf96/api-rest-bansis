@@ -31,6 +31,7 @@ class EnfundeController extends Controller
             'getEnfundeSeccion', 'getEnfundeSemanalDetail',
             'closeEnfundeSemanal', 'informeSemanalEnfunde',
             'informeSemanalEnfundeMaterial', 'informeSemanalEnfundeEmpleados', 'informeSmanalEnfundeEmpleadoMaterial',
+            'dashboardEnfundePeriodo', 'dashboardEnfundeLoteHacienda',
             'enfundeSemanal_PDF'
         ]]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
@@ -1170,6 +1171,108 @@ class EnfundeController extends Controller
         $pdf = \PDF::loadView('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
         return $pdf->download('ejemplo.pdf');
         //return view('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
+    }
+
+    public function dashboardEnfundePeriodo()
+    {
+        try {
+            $sql = DB::table('SIS_CALENDARIO_DOLE AS calendario')
+                ->crossJoin('HACIENDAS AS hacienda')
+                ->select('calendario.periodo',
+                    DB::raw("'Per-' + RIGHT ( '00' + LTRIM( calendario.periodo ), 2 ) AS per_chart"),
+                    'hacienda.id as idhacienda',
+                    DB::raw("ISNULL((SELECT isnull( SUM ( detalle.cant_pre + detalle.cant_fut ), 0 ) total FROM HAC_ENFUNDES enfunde
+                INNER JOIN HAC_DET_ENFUNDES detalle ON detalle.idenfunde = enfunde.id
+                INNER JOIN SIS_CALENDARIO_DOLE calendario2 ON calendario2.fecha = enfunde.fecha
+                AND calendario2.periodo = calendario.periodo AND enfunde.idhacienda = hacienda.id), 0) as total")
+                )
+                ->whereBetween('calendario.codigo', [22000, 22053])
+                ->groupBy('calendario.periodo', 'hacienda.id')
+                ->get();
+
+            $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+            //Chart bar
+            $values_primo = [];
+            $values_sofca = [];
+            $options = [];
+
+            if (count($sql->all()) > 0) {
+                foreach ($sql->all() as $value) {
+                    if ($value->idhacienda == 1) {
+                        array_push($values_primo, $value->total);
+                    }
+
+                    if ($value->idhacienda == 3) {
+                        array_push($values_sofca, $value->total);
+                    }
+
+                    array_push($options, $value->per_chart);
+                }
+            }
+
+            $this->out['dataChartBarPrimo'] = [
+                'name' => "Hacienda Primo",
+                'data' => $values_primo,
+            ];
+
+            $this->out['dataChartBarSofca'] = [
+                'name' => 'Hacienda Sofca',
+                'data' => $values_sofca
+            ];
+
+            $this->out['dataOptions'] = $options;
+
+            return response()->json($this->out, 200);
+        } catch (\Exception $ex) {
+            $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
+            $this->errors = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function dashboardEnfundeLoteHacienda(Request $request)
+    {
+        try {
+            $sql = DB::table('HAC_ENFUNDES AS enfunde')
+                ->select(
+                    DB::raw("RIGHT( '000' + seccion.alias, 3 ) alias"),
+                    DB::raw("isnull( SUM ( detalle.cant_pre + detalle.cant_fut ), 0 ) total")
+                )
+                ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
+                ->join('HAC_LOTSEC_LABEMPLEADO_DET AS seccion_labor_det', 'seccion_labor_det.id', 'detalle.idseccion')
+                ->join('HAC_LOTES_SECCION AS seccion', 'seccion_labor_det.idlote_sec', 'seccion.id')
+                ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'enfunde.fecha')
+                ->whereBetween('calendario.codigo', [22000, 22053])
+                ->where('enfunde.idhacienda', 1)
+                ->groupBy('seccion.alias')
+                ->orderBy(DB::raw("SUM ( detalle.cant_pre + detalle.cant_fut)"),'desc')
+                ->get();
+
+            $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+            //Chart bar
+            $values = [];
+            $options = [];
+
+            if (count($sql->all()) > 0) {
+                foreach ($sql->all() as $value) {
+                    array_push($values, $value->total);
+                    array_push($options, $value->alias);
+                }
+            }
+
+            $this->out['valueLotes'] = [
+                'name' => 'Total Lotes',
+                'data' => $values
+            ];
+
+            $this->out['dataOptions'] = $options;
+
+            return response()->json($this->out, 200);
+        } catch (\Exception $ex) {
+            $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
+            $this->errors = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
     }
 
     public function respuesta_json(...$datos)

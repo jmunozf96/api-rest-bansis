@@ -144,6 +144,9 @@ Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lotes', 'Sisba
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cajas-dia', 'Sisban\CosechaController@getCajasDia');
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/lotesRecobro', 'Sisban\CosechaController@getLotesRecobro');
 
+//Dashboard Enfunde
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-periodo', 'Hacienda\EnfundeController@dashboardEnfundePeriodo');
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-lote', 'Hacienda\EnfundeController@dashboardEnfundeLoteHacienda');
 
 //Api Android
 Route::apiResource('api/bansis-app/index.php/fitos/coordenadas', 'Sistema\CoordenadasFitoController');
