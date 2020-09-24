@@ -147,7 +147,14 @@ Route::get('api/bansis-app/index.php/recepcion/{hacienda}/lotesRecobro', 'Sisban
 //Dashboard Enfunde
 Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-periodo', 'Hacienda\EnfundeController@dashboardEnfundePeriodo');
 Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-lote', 'Hacienda\EnfundeController@dashboardEnfundeLoteHacienda');
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-lotero', 'Hacienda\EnfundeController@dashboardEnfundeLoteLotero');
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-hacienda', 'Hacienda\EnfundeController@dashboardEnfundeHacienda');
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-historico', 'Hacienda\EnfundeController@dashboardEnfundeHistorico');
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-has', 'Hacienda\EnfundeController@dashboardEnfundeHectareas');
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-lote-data', 'Hacienda\EnfundeController@getLoterosLoteEnfunde');
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-lotero-data', 'Hacienda\EnfundeController@getLotesLoteroEnfunde');
 
 //Api Android
 Route::apiResource('api/bansis-app/index.php/fitos/coordenadas', 'Sistema\CoordenadasFitoController');
 Route::apiResource('api/bansis-app/index.php/cosecha/manos', 'Sistema\ManosRecusadasController');
+Route::apiResource('api/bansis-app/index.php/hacienda/danos', 'Sistema\DanoController');

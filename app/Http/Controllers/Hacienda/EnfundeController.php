@@ -31,7 +31,9 @@ class EnfundeController extends Controller
             'getEnfundeSeccion', 'getEnfundeSemanalDetail',
             'closeEnfundeSemanal', 'informeSemanalEnfunde',
             'informeSemanalEnfundeMaterial', 'informeSemanalEnfundeEmpleados', 'informeSmanalEnfundeEmpleadoMaterial',
-            'dashboardEnfundePeriodo', 'dashboardEnfundeLoteHacienda',
+            'dashboardEnfundePeriodo', 'dashboardEnfundeLoteHacienda', 'dashboardEnfundeLoteLotero',
+            'dashboardEnfundeHacienda', 'dashboardEnfundeHistorico', 'dashboardEnfundeHectareas',
+            'getLoterosLoteEnfunde', 'getLotesLoteroEnfunde',
             'enfundeSemanal_PDF'
         ]]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
@@ -1179,7 +1181,7 @@ class EnfundeController extends Controller
             $sql = DB::table('SIS_CALENDARIO_DOLE AS calendario')
                 ->crossJoin('HACIENDAS AS hacienda')
                 ->select('calendario.periodo',
-                    DB::raw("'Per-' + RIGHT ( '00' + LTRIM( calendario.periodo ), 2 ) AS per_chart"),
+                    DB::raw("'Per ' + RIGHT ( '00' + LTRIM( calendario.periodo ), 2 ) AS per_chart"),
                     'hacienda.id as idhacienda',
                     DB::raw("ISNULL((SELECT isnull( SUM ( detalle.cant_pre + detalle.cant_fut ), 0 ) total FROM HAC_ENFUNDES enfunde
                 INNER JOIN HAC_DET_ENFUNDES detalle ON detalle.idenfunde = enfunde.id
@@ -1200,13 +1202,13 @@ class EnfundeController extends Controller
                 foreach ($sql->all() as $value) {
                     if ($value->idhacienda == 1) {
                         array_push($values_primo, $value->total);
+                        array_push($options, $value->per_chart);
                     }
 
                     if ($value->idhacienda == 3) {
                         array_push($values_sofca, $value->total);
                     }
 
-                    array_push($options, $value->per_chart);
                 }
             }
 
@@ -1235,6 +1237,7 @@ class EnfundeController extends Controller
         try {
             $sql = DB::table('HAC_ENFUNDES AS enfunde')
                 ->select(
+                    'seccion.id',
                     DB::raw("RIGHT( '000' + seccion.alias, 3 ) alias"),
                     DB::raw("isnull( SUM ( detalle.cant_pre + detalle.cant_fut ), 0 ) total")
                 )
@@ -1244,17 +1247,19 @@ class EnfundeController extends Controller
                 ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'enfunde.fecha')
                 ->whereBetween('calendario.codigo', [22000, 22053])
                 ->where('enfunde.idhacienda', 1)
-                ->groupBy('seccion.alias')
-                ->orderBy(DB::raw("SUM ( detalle.cant_pre + detalle.cant_fut)"),'desc')
+                ->groupBy('seccion.id', 'seccion.alias')
+                ->orderBy(DB::raw("SUM ( detalle.cant_pre + detalle.cant_fut)"), 'desc')
                 ->get();
 
             $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
             //Chart bar
             $values = [];
             $options = [];
+            $id = [];
 
             if (count($sql->all()) > 0) {
                 foreach ($sql->all() as $value) {
+                    array_push($id, $value->id);
                     array_push($values, $value->total);
                     array_push($options, $value->alias);
                 }
@@ -1262,17 +1267,335 @@ class EnfundeController extends Controller
 
             $this->out['valueLotes'] = [
                 'name' => 'Total Lotes',
-                'data' => $values
+                'data' => $values,
             ];
 
+            $this->out['dataId'] = $id;
             $this->out['dataOptions'] = $options;
 
             return response()->json($this->out, 200);
         } catch (\Exception $ex) {
             $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
-            $this->errors = $ex->getMessage();
+            $this['errors'] = $ex->getMessage();
             return response()->json($this->out, 500);
         }
+    }
+
+    public function dashboardEnfundeLoteLotero()
+    {
+        try {
+            $sql = DB::table('HAC_ENFUNDES AS enfunde')
+                ->select('empleado.id', 'empleado.nombres',
+                    DB::raw("sum(detalle.cant_pre + detalle.cant_fut) as enfunde"),
+                    DB::raw("count(distinct enfunde.id) as semanasLaboradas"),
+                    DB::raw("round(sum(seccion_empD.has)/count(distinct enfunde.id),2) HasProm"),
+                    DB::raw("Round(sum(detalle.cant_pre + detalle.cant_fut)/(sum(seccion_empD.has)/count(distinct enfunde.id)),0) enfundeHas")
+                )
+                ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
+                ->join('HAC_LOTSEC_LABEMPLEADO_DET AS seccion_empD', 'seccion_empD.id', 'detalle.idseccion')
+                ->join('HAC_LOTSEC_LABEMPLEADO AS seccion_emp', 'seccion_emp.id', 'seccion_empD.idcabecera')
+                ->join('HAC_EMPLEADOS AS empleado', 'empleado.id', 'seccion_emp.idempleado')
+                ->where('empleado.idhacienda', 1)
+                ->groupBy('empleado.id', 'empleado.nombres')
+                ->orderBy(DB::raw("sum(detalle.cant_pre + detalle.cant_fut)"), "desc")
+                ->get();
+
+            $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+            //$this->out['datos'] = $sql->all();
+            /*"nombres": "COELLO CASTILLO JOSE WILLIAN",
+            "enfunde": "4920",
+            "semanasLaboradas": "13",
+            "HasProm": "6.9800000000000004",
+            "enfundeHas": "705.0"*/
+
+            $values = [];
+            $options = [];
+            $id = [];
+
+
+            if ($sql->count() > 0) {
+                foreach ($sql->all() as $item) {
+                    array_push($id, $item->id);
+                    array_push($values, $item->enfunde);
+                    array_push($options, $item->nombres);
+                }
+            }
+
+            $this->out['values'] = [
+                'name' => 'Enfunde Lotero',
+                'data' => $values
+            ];
+            $this->out['dataId'] = $id;
+            $this->out['options'] = $options;
+
+            return response()->json($this->out, 200);
+        } catch (\Exception $ex) {
+            $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
+            $this->out['errors'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function dashboardEnfundeHacienda()
+    {
+        try {
+            $sql = DB::table('HAC_ENFUNDES AS enfunde')
+                ->select('idhacienda',
+                    DB::raw("(CASE WHEN idhacienda = 1 THEN 'Primo' ELSE 'Sofca' END) detalle"),
+                    DB::raw("sum(detalle.cant_pre + detalle.cant_fut) enfunde"))
+                ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
+                ->join('HACIENDAS AS hacienda', 'hacienda.id', 'enfunde.idhacienda')
+                ->groupBy('idhacienda')
+                ->orderBy('idhacienda')
+                ->get();
+
+            $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+            //$this->out['datos'] = $sql->all();
+
+            $values = [];
+            $options = [];
+            $id = [];
+
+            if ($sql->count() > 0) {
+                foreach ($sql->all() as $item) {
+                    array_push($id, $item->idhacienda);
+                    array_push($values, intval($item->enfunde));
+                    array_push($options, $item->detalle);
+                }
+            }
+
+            $this->out['dataHaciendas'] = $sql->all();
+            $this->out['values'] = $values;
+            $this->out['options'] = $options;
+            $this->out['dataId'] = $id;
+
+            return response()->json($this->out, 200);
+        } catch (\Exception $ex) {
+            $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
+            $this->out['errors'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function dashboardEnfundeHistorico()
+    {
+        try {
+
+            $values_primo = [
+                $this->enfundeTotalHaciendaSisban(1, 2018, 1, 13, 1, 52)->first()->total,
+                $this->enfundeTotalHaciendaSisban(1, 2019, 1, 13, 1, 52)->first()->total
+            ];
+
+            $values_sofca = [
+                $this->enfundeTotalHaciendaSisban(3, 2018, 1, 13, 1, 52)->first()->total,
+                $this->enfundeTotalHaciendaSisban(3, 2019, 1, 13, 1, 52)->first()->total
+            ];
+
+            $options = ['2018', '2019', '2020'];
+
+            $sql = DB::table('HAC_ENFUNDES AS enfunde')
+                ->select(
+                    'hacienda.id',
+                    DB::raw("sum(detalle.cant_pre + detalle.cant_fut) total"))
+                ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
+                ->join('HACIENDAS AS hacienda', function ($query) {
+                    $query->on('hacienda.id', 'enfunde.idhacienda');
+                })
+                ->join('SIS_CALENDARIO_DOLE AS calendario', function ($query) {
+                    $query->on('calendario.fecha', 'enfunde.fecha')
+                        ->whereBetween('calendario.codigo', [22026, 22053])
+                        ->whereBetween('calendario.periodo', [1, 13]);
+                })
+                ->groupBy('hacienda.id')->get();
+
+            foreach ($sql as $item):
+                if ($item->id == 1) {
+                    //Traer los datos de la semana 26, ya que este sistema empezo a capturar datos de primo en la 25 y sofca en la 26,
+                    //asi que se toman los datos desde la semana 26 y se le añaden las semanas anteriores.
+                    $migracion = $this->enfundeTotalHaciendaSisban(1, 2018, 1, 13, 1, 25)->first()->total;
+                    array_push($values_primo, $item->total + $migracion);
+                } else {
+                    $migracion = $this->enfundeTotalHaciendaSisban(3, 2018, 1, 13, 1, 25)->first()->total;
+                    array_push($values_sofca, $item->total + $migracion);
+                }
+            endforeach;
+
+            $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+            $this->out['series'] = [
+                [
+                    'name' => "Primo",
+                    'data' => $values_primo
+                ],
+                [
+                    'name' => "Sofca",
+                    'data' => $values_sofca
+                ]
+            ];
+            $this->out['categories'] = $options;
+
+            return response()->json($this->out, 200);
+        } catch (\Exception $ex) {
+            $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
+            $this->out['errors'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function dashboardEnfundeHectareas()
+    {
+        try {
+            $sql = DB::table('HAC_ENFUNDES AS enfunde')
+                ->select('seccion.has', DB::raw("sum(detalle.cant_pre + detalle.cant_fut) as total"))
+                ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
+                ->join('HAC_LOTSEC_LABEMPLEADO_DET AS laborSecDet', 'laborSecDet.id', 'detalle.idseccion')
+                ->join('HAC_LOTES_SECCION AS seccion', 'seccion.id', 'laborSecDet.idlote_sec')
+                ->join('SIS_CALENDARIO_DOLE AS calendario', function ($query) {
+                    $inicio_fin_year = $this->codigoCalendarioAnual(2020);
+                    $query->on('calendario.fecha', 'enfunde.fecha')
+                        ->whereBetween('calendario.codigo', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
+                })
+                ->groupBy("seccion.has")
+                ->orderBy("seccion.has")
+                ->get();
+
+            $data = [];
+
+            foreach ($sql as $item) {
+                array_push($data, [round($item->has, 2), round($item->total / $item->has, 0)]);
+            }
+
+            $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+            $this->out['series'] = [
+                [
+                    'name' => "Primo",
+                    'data' => $data
+                ]
+            ];
+
+            return response()->json($this->out, 200);
+        } catch (\Exception $ex) {
+            $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
+            $this->out['errors'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function getLoterosLoteEnfunde(Request $request)
+    {
+        try {
+            $idLote = $request->get('idlote');
+            if (!empty($idLote) && !is_null($idLote)):
+                $sql = DB::table('HAC_ENFUNDES AS enfunde')
+                    ->select(
+                        'empleado.id', 'empleado.nombres',
+                        DB::raw("min(calendario.semana) SemanaInicio"),
+                        DB::raw("max(calendario.semana) SemanaFin"),
+                        DB::raw("count(distinct enfunde.id) semanasLaboradas"),
+                        DB::raw("round(sum(laborSecDet.has)/count(distinct enfunde.id),2) HasProm"),
+                        DB::raw("sum(detalle.cant_pre + detalle.cant_fut) total"),
+                        DB::raw("round(sum(detalle.cant_pre + detalle.cant_fut)/(sum(laborSecDet.has)/count(distinct enfunde.id)),0) totalHas")
+                    )
+                    ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
+                    ->join('HAC_LOTSEC_LABEMPLEADO_DET AS laborSecDet', 'laborSecDet.id', 'detalle.idseccion')
+                    ->join('HAC_LOTES_SECCION AS seccion', 'seccion.id', 'laborSecDet.idlote_sec')
+                    ->join('HAC_LOTSEC_LABEMPLEADO AS laborSec', 'laborSec.id', 'laborSecDet.idcabecera')
+                    ->join('HAC_EMPLEADOS AS empleado', 'empleado.id', 'laborSec.idempleado')
+                    ->join('SIS_CALENDARIO_DOLE AS calendario', function ($query) {
+                        $inicio_fin_year = $this->codigoCalendarioAnual(2020);
+                        $query->on('calendario.fecha', 'enfunde.fecha')
+                            ->whereBetween('calendario.codigo', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
+                    })
+                    ->where([
+                        'seccion.id' => $idLote
+                    ])
+                    ->groupBy('empleado.id', 'empleado.nombres')
+                    ->get();
+
+                $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+                $this->out['data'] = $sql->all();
+
+                return response()->json($this->out, 200);
+            else:
+                throw new \Exception('No se ha recibido el codigo del lote');
+            endif;
+        } catch (\Exception $ex) {
+            $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
+            $this->out['errors'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function getLotesLoteroEnfunde(Request $request)
+    {
+        try {
+            $idLotero = $request->get('idlotero');
+            if (!empty($idLotero) && !is_null($idLotero)):
+                $sql = DB::table('HAC_ENFUNDES AS enfunde')
+                    ->select(
+                        'seccion.id', 'seccion.alias',
+                        DB::raw("min(calendario.semana) SemanaInicio"),
+                        DB::raw("max(calendario.semana) SemanaFin"),
+                        DB::raw("count(distinct enfunde.id) semanasLaboradas"),
+                        DB::raw("round(sum(laborSecDet.has)/count(distinct enfunde.id),2) HasProm"),
+                        DB::raw("sum(detalle.cant_pre + detalle.cant_fut) total"),
+                        DB::raw("round(sum(detalle.cant_pre + detalle.cant_fut)/(sum(laborSecDet.has)/count(distinct enfunde.id)),0) totalHas")
+                    )
+                    ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
+                    ->join('HAC_LOTSEC_LABEMPLEADO_DET AS laborSecDet', 'laborSecDet.id', 'detalle.idseccion')
+                    ->join('HAC_LOTES_SECCION AS seccion', 'seccion.id', 'laborSecDet.idlote_sec')
+                    ->join('HAC_LOTSEC_LABEMPLEADO AS laborSec', 'laborSec.id', 'laborSecDet.idcabecera')
+                    ->join('HAC_EMPLEADOS AS empleado', 'empleado.id', 'laborSec.idempleado')
+                    ->join('SIS_CALENDARIO_DOLE AS calendario', function ($query) {
+                        $inicio_fin_year = $this->codigoCalendarioAnual(2020);
+                        $query->on('calendario.fecha', 'enfunde.fecha')
+                            ->whereBetween('calendario.codigo', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
+                    })
+                    ->where([
+                        'empleado.id' => $idLotero
+                    ])
+                    ->groupBy('seccion.id', 'seccion.alias')
+                    ->get();
+
+                $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+                $this->out['data'] = $sql->all();
+
+                return response()->json($this->out, 200);
+            else:
+                throw new \Exception('No se ha recibido el codigo del lote');
+            endif;
+        } catch (\Exception $ex) {
+            $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
+            $this->out['errors'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
+    public function enfundeTotalHaciendaSisban($hacienda, $year, ...$data)
+    {
+        $tabla = $hacienda == 1 ? 'enfunde_primo' : 'enfunde_sofca';
+        return DB::connection('SISBAN')
+            ->table("$tabla AS enfunde")
+            ->select(DB::raw("SUM(enfunde.en_cantpre + enfunde.en_cantfut) AS total"))
+            ->join('calendario_dole AS calendario', function ($join) use ($year, $data) {
+                $inicio_fin_year = $this->codigoCalendarioAnual($year);
+
+                $join->on('calendario.fecha', '=', 'enfunde.en_fecha')
+                    ->whereBetween('calendario.idcalendar', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
+
+                if (count($data) > 0) {
+                    $join->whereBetween('calendario.periodo', [$data[0], $data[1]])
+                        ->whereBetween('calendario.semana', [$data[2], $data[3]]);
+                }
+            });
+    }
+
+    public function codigoCalendarioAnual($year)
+    {
+        //Retorna el codigo de inicio y final del año
+        return DB::connection('SISBAN')->table('calendario_dole AS calendario')
+            ->select(DB::raw("min(idcalendar) inicio"), DB::raw("max(idcalendar) fin"))
+            ->where(DB::raw("SUBSTRING(CONVERT(varchar, calendario.idcalendar), 1,3) + 1800"), $year)
+            ->first();
     }
 
     public function respuesta_json(...$datos)
