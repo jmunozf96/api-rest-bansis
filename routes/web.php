@@ -151,6 +151,7 @@ Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-lotero', 'Haciend
 Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-hacienda', 'Hacienda\EnfundeController@dashboardEnfundeHacienda');
 Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-historico', 'Hacienda\EnfundeController@dashboardEnfundeHistorico');
 Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-has', 'Hacienda\EnfundeController@dashboardEnfundeHectareas');
+Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-has-dataLote', 'Hacienda\EnfundeController@dashboardEnfundeSemanalLote');
 Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-lote-data', 'Hacienda\EnfundeController@getLoterosLoteEnfunde');
 Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-lotero-data', 'Hacienda\EnfundeController@getLotesLoteroEnfunde');
 
