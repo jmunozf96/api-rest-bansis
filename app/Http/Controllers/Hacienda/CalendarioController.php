@@ -37,7 +37,7 @@ class CalendarioController extends Controller
 
                     $this->out = $this->respuesta_json('success', 200, 'Datos encontrados');
                     $this->out['calendario'] = $semana;
-                    
+
                     return response()->json($this->out, 200);
                 }
 
@@ -46,6 +46,34 @@ class CalendarioController extends Controller
             }
 
             throw new \Exception('No se han recibido parametros de fecha');
+
+        } catch (\Exception $ex) {
+            $this->out['message'] = $ex->getMessage();
+            return response()->json($this->out, $this->out['code']);
+        }
+    }
+
+    public function semanasPeriodo(Request $request)
+    {
+        try {
+            $periodo = $request->get('periodo');
+            $year = $request->get('year');
+
+            if (!empty($periodo) && $periodo !== "null" && !empty($year) && $year !== "null") {
+                $sql = Calendario::select('semana')
+                    ->whereRaw("SUBSTRING(CONVERT(varchar, codigo ), 1, 3) + 1800 = $year")
+                    ->where('periodo', $periodo)
+                    ->groupBy('semana')
+                    ->get()->pluck('semana');
+
+                $this->out = $this->respuesta_json('success', 200, 'Datos encontrados');
+                $this->out['semanas'] = $sql->all();
+
+                return response()->json($this->out, 200);
+            }
+
+
+            throw new \Exception('Parametros de periodo y año son obligatorios.');
 
         } catch (\Exception $ex) {
             $this->out['message'] = $ex->getMessage();

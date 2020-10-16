@@ -3,54 +3,170 @@
 namespace App\Http\Controllers\Hacienda;
 
 use App\Http\Controllers\Controller;
+use App\Models\Bodega\EgresoBodegaDetalle;
+use App\Models\Bodega\Material;
 use App\Models\Hacienda\InventarioEmpleado;
+use App\Models\Sistema\Calendario;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use mysql_xdevapi\Exception;
 
-class InventarioEmpleadoController extends Controller
+class InventarioEmpleadoController
 {
-    protected $out;
+    protected static $out;
 
     public function __construct()
     {
-        $this->middleware('api.auth', ['except' => ['index', 'show']]);
-        $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
+        self::$out = $this->respuesta_json('error', 500, 'Error en respuesta desde el servidor.');
     }
 
-    public function index()
+    /**
+     * @return array
+     */
+    public static function getOut(): array
     {
-        //
+        return self::$out;
     }
 
-    public function store(Request $request)
+    public static function setOut(array $out): void
     {
-        //
+        self::$out = $out;
     }
 
-
-    public function show($id)
+    public static function storeInventario($idempleado, EgresoBodegaDetalle $detalle, $incrementa = false, $cantidad_a_saldar = 0)
     {
-        //
+        try {
+            //Traemos los datos del calendario
+            $calendario = self::calendario($detalle['fecha_salida']);
+
+            $inventario = new InventarioEmpleado();
+            $inventario->idcalendar = $calendario->codigo;
+            $inventario->idempleado = $idempleado;
+            $inventario->idmaterial = $detalle['idmaterial'];
+            $inventario->sld_inicial = 0;
+            $inventario->tot_egreso = $detalle['cantidad'];
+            $inventario->tot_consumo = 0;
+            $inventario->tot_devolucion = 0;
+            $inventario->saldoFinal();
+            $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
+
+            $save = true;
+            if (!is_object(InventarioEmpleado::existeInventario($inventario))) {
+                //Actualizar stock del material----------------------------------------------------
+                $material_stock = Material::getMaterialById($inventario->idmaterial);
+                $material_stock->stock -= $detalle['cantidad'];
+                $material_stock->save();
+                //---------------------------------------------------------------------------------
+
+                $inventario->created_at = Carbon::now()->format(config('constants.format_date'));
+                $inventario->save();
+            } else {
+                $save = false;
+                $saldo_negativo = false;
+
+                $inventario = InventarioEmpleado::existeInventario($inventario);
+
+                //Actualizar stock del material----------------------------------------------------
+                $material_stock = Material::getMaterialById($inventario->idmaterial);
+                $material_stock->stock += $inventario->tot_egreso;
+                //---------------------------------------------------------------------------------
+
+                if ($incrementa) {
+                    $inventario->tot_egreso += $detalle['cantidad'];
+                } else {
+                    $inventario->tot_egreso = ($inventario->tot_egreso - $cantidad_a_saldar) + $detalle['cantidad'];
+                }
+
+                $material_stock->stock -= $inventario->tot_egreso;
+                $material_stock->save();
+
+                $inventario->saldoFinal();
+
+                if ($inventario->sld_final < 0) {
+                    $saldo_negativo = true;
+                } else {
+                    $inventario->save();
+                }
+                //edicion del inventario
+            }
+
+            self::setOut([
+                'status' => $save,
+                'negativo' => $saldo_negativo,
+                'data' => $inventario
+            ]);
+
+        } catch (\Exception $ex) {
+            self::setOut([
+                'status' => 'error',
+                'message' => $ex->getMessage()
+            ]);
+        }
+
+        return self::getOut();
     }
 
-    public function update(Request $request, $id)
+    public static function reduceInventario($idempleado, EgresoBodegaDetalle $detalle)
     {
-        //
+        try {
+            //Traemos los datos del calendario
+            $calendario = self::calendario($detalle['fecha_salida']);
+
+            $inventario = new InventarioEmpleado();
+            $inventario->idcalendar = $calendario->codigo;
+            $inventario->idempleado = $idempleado;
+            $inventario->idmaterial = $detalle['idmaterial'];
+
+            $delete = false;
+            $saldo_negativo = false;
+
+            if (is_object(InventarioEmpleado::existeInventario($inventario))) {
+                //Actualizar stock del material----------------------------------------------------
+                $material_stock = Material::getMaterialById($inventario->idmaterial);
+                $material_stock->stock += $detalle['cantidad'];
+                $material_stock->save();
+                //---------------------------------------------------------------------------------
+
+                $inventario = InventarioEmpleado::existeInventario($inventario);
+                $inventario->tot_egreso -= $detalle['cantidad'];
+                $inventario->saldoFinal();
+                $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
+                $inventario->save();
+
+                if ($inventario->sld_final == 0) {
+                    $delete = $inventario->delete();
+                } else if ($inventario->sld_final < 0) {
+                    $saldo_negativo = true;
+                }
+            }
+
+            self::setOut([
+                'status' => $delete,
+                'negativo' => $saldo_negativo,
+                'data' => $inventario
+            ]);
+
+        } catch (\Exception $ex) {
+            self::setOut([
+                'status' => 'error',
+                'message' => $ex->getMessage()
+            ]);
+        }
+
+        return self::getOut();
     }
 
-
-    public function destroy($id)
+    public static function calendario($fecha)
     {
-        //
+        return Calendario::where('fecha', $fecha)->first();
     }
 
-    public function respuesta_json(...$datos)
+    public function respuesta_json($status, $code, $message)
     {
         return array(
-            'status' => $datos[0],
-            'code' => $datos[1],
-            'message' => $datos[2]
+            'status' => $status,
+            'code' => $code,
+            'message' => $message
         );
     }
 }

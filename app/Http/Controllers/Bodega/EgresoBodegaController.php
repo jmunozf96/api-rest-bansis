@@ -34,7 +34,9 @@ class EgresoBodegaController extends Controller
             $semana = $request->get('semana');
             $empleado = $request->get('empleado');
 
-            $egresos = EgresoBodega::select('id', 'codigo', 'idcalendario', 'periodo', 'semana', 'idempleado', 'updated_at', 'estado');
+            $egresos = EgresoBodega::select('id', 'codigo', 'idcalendario',
+                'periodo', 'semana', 'idempleado',
+                'updated_at', 'estado');
 
             if (!empty($periodo) && isset($periodo))
                 $egresos = $egresos->where('periodo', $periodo);
@@ -57,8 +59,7 @@ class EgresoBodegaController extends Controller
                 $query->with(['labor' => function ($query) {
                     $query->select('id', 'descripcion');
                 }]);
-            }])
-                ->orderBy('idcalendario', 'desc')
+            }])->orderBy('idcalendario', 'desc')
                 ->orderBy('estado', 'DESC')
                 ->orderBy('updated_at', 'DESC')
                 ->paginate(7);
@@ -89,7 +90,8 @@ class EgresoBodegaController extends Controller
                 $validacion = Validator::make($params_array, [
                     'cabecera.empleado.id' => 'required',
                     'cabecera.hacienda' => 'required',
-                    'detalle' => 'required|array'
+                    'detalle' => 'required|array',
+                    'devolucion' => 'required'
                 ], [
                     'cabecera.empleado.id.required' => "El empleado es necesario",
                     'cabecera.hacienda.required' => "Es necesario seleccionar una hacienda",
@@ -99,6 +101,7 @@ class EgresoBodegaController extends Controller
                 if (!$validacion->fails()) {
                     $cabecera = $params_array['cabecera'];
                     $detalle = $params_array['detalle'];
+                    $devolucion = boolval($params_array['devolucion']);
 
                     $timestamp = strtotime(str_replace('/', '-', $cabecera['fecha']));
                     $cabecera['fecha'] = date(config('constants.date'), $timestamp);
@@ -114,7 +117,8 @@ class EgresoBodegaController extends Controller
                             'idcalendario' => $calendario->codigo,
                             'periodo' => $calendario->periodo,
                             'semana' => $calendario->semana,
-                            'idempleado' => $cabecera['empleado']['id']
+                            'idempleado' => $cabecera['empleado']['id'],
+                            'estado' => true
                         ])->first();
 
                         if (empty($egreso) || is_null($egreso) || !is_object($egreso)) {
@@ -126,6 +130,10 @@ class EgresoBodegaController extends Controller
                             $egreso->periodo = $calendario->periodo;
                             $egreso->semana = $calendario->semana;
                             $egreso->created_at = Carbon::now()->format(config('constants.format_date'));
+
+                            if (!$devolucion) {
+                                $egreso->estado = false;
+                            }
 
                             $mensaje = 'Se registro correctamente la transaccion #' . $egreso->codigo;
                             $this->out['codigo_transaccion'] = $egreso->codigo;
@@ -143,7 +151,7 @@ class EgresoBodegaController extends Controller
                                     throw new \Exception('No se pudo procesar esta transaccion, hay un problema con la transferencia de saldo del empleado ' . $item->dataTransfer->emp_solicitado->descripcion);
                                 }
                             } else {
-                                $this->storeDetalleTransaccion($item, $cabecera);
+                                $this->storeDetalleTransaccion($item, $cabecera, $devolucion);
                             }
                         }
 
@@ -170,7 +178,7 @@ class EgresoBodegaController extends Controller
         }
     }
 
-    public function storeDetalleTransaccion($detalle, $cabecera)
+    public function storeDetalleTransaccion($detalle, $cabecera, $devolucion = true)
     {
         try {
 
@@ -180,12 +188,13 @@ class EgresoBodegaController extends Controller
             $existe_detalle = EgresoBodegaDetalle::where([
                 'idegreso' => $cabecera['id'],
                 'idmaterial' => $detalle['idmaterial'],
-                'fecha_salida' => $detalle['time']
+                'fecha_salida' => $detalle['time'],
+                'estado' => true
             ])->first();
 
             if (is_object($existe_detalle)) {
                 if (!$this->testMovimientosDetalle($existe_detalle)) {
-                    if ($this->storeInventario($cabecera, $detalle, true, $existe_detalle->cantidad)) {
+                    if ($this->storeInventario($cabecera, $detalle, true, $existe_detalle->cantidad, $devolucion)) {
                         if (intval($existe_detalle->cantidad) !== intval($detalle['cantidad'])) {
                             $existe_detalle->cantidad = $detalle['cantidad'];
                             $existe_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
@@ -194,7 +203,7 @@ class EgresoBodegaController extends Controller
                     }
                 }
             } else {
-                if ($this->storeInventario($cabecera, $detalle, false)) {
+                if ($this->storeInventario($cabecera, $detalle, false, 0, $devolucion)) {
                     $egreso_detalle = new EgresoBodegaDetalle();
                     $egreso_detalle->idegreso = $cabecera['id'];
                     $egreso_detalle->idmaterial = $detalle['idmaterial'];
@@ -214,7 +223,7 @@ class EgresoBodegaController extends Controller
         }
     }
 
-    public function storeInventario($cabecera, $detalle, $edit = false, $cantidad_old = 0)
+    public function storeInventario($cabecera, $detalle, $edit = false, $cantidad_old = 0, $devolucion = true)
     {
         try {
             //Guardar el inventario
@@ -226,6 +235,7 @@ class EgresoBodegaController extends Controller
             $egreso_inventario->cantidad = $detalle['cantidad'];
             $egreso_inventario->edicion = $edit;
             $egreso_inventario->cantidad_old = $cantidad_old;
+            $egreso_inventario->estado = $devolucion;
             return $this->saveInventario($egreso_inventario);
         } catch (\Exception $ex) {
             return false;
@@ -239,7 +249,8 @@ class EgresoBodegaController extends Controller
                 $inventario = InventarioEmpleado::where([
                     'idcalendar' => $egreso->idcalendario,
                     'idempleado' => $egreso->idempleado,
-                    'idmaterial' => $egreso->idmaterial
+                    'idmaterial' => $egreso->idmaterial,
+                    'estado' => $egreso->estado
                 ])->first();
 
                 $material_stock = Material::where(['id' => $egreso->idmaterial])->first();
@@ -253,6 +264,7 @@ class EgresoBodegaController extends Controller
                     $inventario->sld_inicial = 0;
                     $inventario->created_at = Carbon::now()->format(config('constants.format_date'));
                     $inventario->tot_egreso = intval($egreso->cantidad);
+                    $inventario->estado = $egreso->estado;
                     $material_stock->stock = intval($material_stock->stock) - intval($egreso->cantidad);
                 } else {
                     if (!$egreso->edicion) {
@@ -789,7 +801,7 @@ class EgresoBodegaController extends Controller
 
     public function testMovimientosDetalle($detalle_egreso)
     {
-        $cantidad_transferidas = 0;
+        //Para saber si cuantas veces ha sido transferido este egreso, para no editar este valor.
         $egresos = EgresoBodegaDetalle::where('id_origen', $detalle_egreso->id)->get();
         $cantidad_transferidas = count($egresos);
 

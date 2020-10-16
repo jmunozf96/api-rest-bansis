@@ -656,6 +656,7 @@ class EnfundeController extends Controller
                             $query->where('idcalendar', $enfunde->idcalendar);
                             $query->whereHas('material', function ($query) {
                                 $query->whereHas('getGrupo', function ($query) {
+                                    //Grupo de enfunde en la base de datos
                                     $query->where('id', 1);
                                 });
                             });
@@ -1176,22 +1177,36 @@ class EnfundeController extends Controller
         //return view('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
     }
 
-    public function dashboardEnfundePeriodo()
+    public function dashboardEnfundePeriodo(Request $request)
     {
         try {
+            $idhacienda = $request->get('idhacienda');
+            $periodo = $request->get('periodo');
+
             $sql = DB::table('SIS_CALENDARIO_DOLE AS calendario')
                 ->crossJoin('HACIENDAS AS hacienda')
                 ->select('calendario.periodo',
                     DB::raw("'Per ' + RIGHT ( '00' + LTRIM( calendario.periodo ), 2 ) AS per_chart"),
-                    'hacienda.id as idhacienda',
-                    DB::raw("ISNULL((SELECT isnull( SUM ( detalle.cant_pre + detalle.cant_fut ), 0 ) total FROM HAC_ENFUNDES enfunde
-                INNER JOIN HAC_DET_ENFUNDES detalle ON detalle.idenfunde = enfunde.id
-                INNER JOIN SIS_CALENDARIO_DOLE calendario2 ON calendario2.fecha = enfunde.fecha
-                AND calendario2.periodo = calendario.periodo AND enfunde.idhacienda = hacienda.id), 0) as total")
+                    'hacienda.id as idhacienda', 'hacienda.detalle',
+                    DB::raw("ISNULL((SELECT isnull( SUM ( detalle.cant_pre + detalle.cant_fut ),0) total
+                    FROM HAC_ENFUNDES enfunde
+                    INNER JOIN HAC_DET_ENFUNDES detalle ON detalle.idenfunde = enfunde.id
+                    INNER JOIN HAC_LOTSEC_LABEMPLEADO_DET seccionDet on seccionDet.id = detalle.idseccion
+                    INNER JOIN SIS_CALENDARIO_DOLE calendario2 ON calendario2.fecha = enfunde.fecha
+                    AND calendario2.periodo = calendario.periodo AND enfunde.idhacienda = hacienda.id), 0) as total")
                 )
                 ->whereBetween('calendario.codigo', [22000, 22053])
-                ->groupBy('calendario.periodo', 'hacienda.id')
-                ->get();
+                ->groupBy('calendario.periodo', 'hacienda.id', 'hacienda.detalle');
+
+            if (!empty($idhacienda) && $idhacienda !== "null") {
+                $sql = $sql->where('hacienda.id', $idhacienda);
+            }
+
+            if (!empty($periodo) && $periodo !== "null") {
+                $sql = $sql->where('calendario.periodo', $periodo);
+            }
+
+            $sql = $sql->get();
 
             $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
             //Chart bar
@@ -1199,36 +1214,70 @@ class EnfundeController extends Controller
             $values_sofca = [];
             $options = [];
 
+            $haciendas = array();
             if (count($sql->all()) > 0) {
                 foreach ($sql->all() as $value) {
+                    $total_enfunde = 0;
                     if ($value->idhacienda == 1) {
-                        array_push($values_primo, $value->total);
+                        /*Empieza desde la semana 29 periodo 8, ya que el periodo 7 Sofca empezo una semana despues,
+                        entonces hay que consolidar con el enfunde del sisban*/
+                        if ($value->periodo >= 1 and $value->periodo <= 7) {
+                            $total_enfunde =
+                                +$this->enfundeTotalHaciendaSisban(1, 2020, true, false, $value->periodo, $value->periodo)
+                                    ->first()->total;
+                        } else {
+                            $total_enfunde = +$value->total;
+                        }
+
+                        array_push($values_primo, number_format($total_enfunde, 0, ',', '.'));
                         array_push($options, $value->per_chart);
                     }
 
                     if ($value->idhacienda == 3) {
-                        array_push($values_sofca, $value->total);
+                        if ($value->periodo >= 1 and $value->periodo <= 7) {
+                            $total_enfunde = +$this->enfundeTotalHaciendaSisban(3, 2020, true, false, $value->periodo, $value->periodo)
+                                ->first()->total;
+                        } else {
+                            $total_enfunde = +$value->total;
+                        }
+                        array_push($values_sofca, number_format($total_enfunde, 0, ',', '.'));
+                    }
+
+                    if (count($haciendas) == 0) {
+                        array_push($haciendas, ['id' => $value->idhacienda, 'detalle' => $value->detalle]);
+                    } else {
+                        $existe = false;
+                        foreach ($haciendas as $hacienda) {
+                            if ($hacienda['id'] == $value->idhacienda && $existe == false) {
+                                $existe = true;
+                                break;
+                            }
+                        }
+                        if (!$existe) {
+                            array_push($haciendas, ['id' => $value->idhacienda, 'detalle' => $value->detalle]);
+                        }
                     }
 
                 }
             }
 
-            $this->out['dataChartBarPrimo'] = [
-                'name' => "Hacienda Primo",
-                'data' => $values_primo,
-            ];
+            $this->out['dataChartBarPrimo'] = null;
+            $this->out['dataChartBarSofca'] = null;
 
-            $this->out['dataChartBarSofca'] = [
-                'name' => 'Hacienda Sofca',
-                'data' => $values_sofca
-            ];
+            foreach ($haciendas as $hacienda) {
+                if ($hacienda['id'] == 1) {
+                    $this->out['dataChartBarPrimo'] = ['name' => $hacienda['detalle'], 'data' => $values_primo];
+                } else {
+                    $this->out['dataChartBarSofca'] = ['name' => $hacienda['detalle'], 'data' => $values_sofca,];
+                }
+            }
 
             $this->out['dataOptions'] = $options;
 
             return response()->json($this->out, 200);
         } catch (\Exception $ex) {
             $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
-            $this->errors = $ex->getMessage();
+            $this->out['errors'] = $ex->getMessage();
             return response()->json($this->out, 500);
         }
     }
@@ -1237,6 +1286,9 @@ class EnfundeController extends Controller
     {
         try {
             $hacienda = $request->get('idhacienda');
+            $periodo = $request->get('periodo');
+            $semana = $request->get('semana');
+
             if (!empty($hacienda) && !is_null($hacienda)) {
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
@@ -1252,11 +1304,19 @@ class EnfundeController extends Controller
                         $query->on('calendario.fecha', 'enfunde.fecha')
                             ->whereBetween('calendario.codigo', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
                     })
-                    ->whereBetween('calendario.codigo', [22000, 22053])
                     ->where('enfunde.idhacienda', $hacienda)
                     ->groupBy('seccion.id', 'seccion.alias')
-                    ->orderBy(DB::raw("SUM ( detalle.cant_pre + detalle.cant_fut)"), 'desc')
-                    ->get();
+                    ->orderBy(DB::raw("SUM ( detalle.cant_pre + detalle.cant_fut)"), 'desc');
+
+                if (!empty($periodo) && $periodo !== "null") {
+                    $sql = $sql->where('calendario.periodo', $periodo);
+                }
+
+                if (!empty($semana) && $semana !== "null") {
+                    $sql = $sql->where('calendario.semana', $semana);
+                }
+
+                $sql = $sql->get();
 
                 $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
                 //Chart bar
@@ -1294,6 +1354,9 @@ class EnfundeController extends Controller
     {
         try {
             $hacienda = $request->get('idhacienda');
+            $periodo = $request->get('periodo');
+            $semana = $request->get('semana');
+
             if (!empty($hacienda) && !is_null($hacienda)) {
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select('empleado.id', 'empleado.nombres',
@@ -1313,8 +1376,17 @@ class EnfundeController extends Controller
                     })
                     ->where('empleado.idhacienda', $hacienda)
                     ->groupBy('empleado.id', 'empleado.nombres')
-                    ->orderBy(DB::raw("sum(detalle.cant_pre + detalle.cant_fut)"), "desc")
-                    ->get();
+                    ->orderBy(DB::raw("sum(detalle.cant_pre + detalle.cant_fut)"), "desc");
+
+                if (!empty($periodo) && $periodo !== "null") {
+                    $sql = $sql->where('calendario.periodo', $periodo);
+                }
+
+                if (!empty($semana) && $semana !== "null") {
+                    $sql = $sql->where('calendario.semana', $semana);
+                }
+
+                $sql = $sql->get();
 
                 $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
                 //$this->out['datos'] = $sql->all();
@@ -1354,18 +1426,25 @@ class EnfundeController extends Controller
         }
     }
 
-    public function dashboardEnfundeHacienda()
+    public function dashboardEnfundeHacienda(Request $request)
     {
         try {
+
+            $idhacienda = $request->get('idhacienda');
+            $periodo = $request->get('periodo');
             $sql = DB::table('HAC_ENFUNDES AS enfunde')
-                ->select('idhacienda',
-                    DB::raw("(CASE WHEN idhacienda = 1 THEN 'Primo' ELSE 'Sofca' END) detalle"),
+                ->select('idhacienda', 'hacienda.detalle',
                     DB::raw("sum(detalle.cant_pre + detalle.cant_fut) enfunde"))
                 ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
                 ->join('HACIENDAS AS hacienda', 'hacienda.id', 'enfunde.idhacienda')
-                ->groupBy('idhacienda')
-                ->orderBy('idhacienda')
-                ->get();
+                ->groupBy('idhacienda', 'hacienda.detalle')
+                ->orderBy('idhacienda');
+
+            if (!empty($idhacienda) && $idhacienda !== "null") {
+                $sql = $sql->where('hacienda.id', $idhacienda);
+            }
+
+            $sql = $sql->get();
 
             $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
             //$this->out['datos'] = $sql->all();
@@ -1377,6 +1456,14 @@ class EnfundeController extends Controller
             if ($sql->count() > 0) {
                 foreach ($sql->all() as $item) {
                     array_push($id, $item->idhacienda);
+                    //Año 2020 empieza desde semana 25 primo y 26 sofca
+                    if ($item->idhacienda == 1) {
+                        $item->enfunde += $this->enfundeTotalHaciendaSisban(1, 2020, true, true, 1, 7, 1, 24)
+                            ->first()->total;
+                    } else {
+                        $item->enfunde += $this->enfundeTotalHaciendaSisban(1, 2020, true, true, 1, 7, 1, 25)
+                            ->first()->total;
+                    }
                     array_push($values, intval($item->enfunde));
                     array_push($options, $item->detalle);
                 }
@@ -1395,25 +1482,28 @@ class EnfundeController extends Controller
         }
     }
 
-    public function dashboardEnfundeHistorico()
+    public function dashboardEnfundeHistorico(Request $request)
     {
         try {
+            $idhacienda = $request->get('idhacienda');
 
             $values_primo = [
-                $this->enfundeTotalHaciendaSisban(1, 2018, 1, 13, 1, 52)->first()->total,
-                $this->enfundeTotalHaciendaSisban(1, 2019, 1, 13, 1, 52)->first()->total
+                //Total trae un objeto, semanal o periodal un array de objetos
+                number_format($this->enfundeTotalHaciendaSisban(1, 2018, true, true, 1, 13, 1, 52)->first()->total, 0, ',', '.'),
+                number_format($this->enfundeTotalHaciendaSisban(1, 2019, true, true, 1, 13, 1, 52)->first()->total, 0, ',', '.')
             ];
 
+
             $values_sofca = [
-                $this->enfundeTotalHaciendaSisban(3, 2018, 1, 13, 1, 52)->first()->total,
-                $this->enfundeTotalHaciendaSisban(3, 2019, 1, 13, 1, 52)->first()->total
+                number_format($this->enfundeTotalHaciendaSisban(3, 2018, true, true, 1, 13, 1, 52)->first()->total, 0, ',', '.'),
+                number_format($this->enfundeTotalHaciendaSisban(3, 2019, true, true, 1, 13, 1, 52)->first()->total, 0, ',', '.')
             ];
 
             $options = ['2018', '2019', '2020'];
 
             $sql = DB::table('HAC_ENFUNDES AS enfunde')
                 ->select(
-                    'hacienda.id',
+                    'hacienda.id', 'hacienda.detalle',
                     DB::raw("sum(detalle.cant_pre + detalle.cant_fut) total"))
                 ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
                 ->join('HACIENDAS AS hacienda', function ($query) {
@@ -1424,31 +1514,63 @@ class EnfundeController extends Controller
                         ->whereBetween('calendario.codigo', [22026, 22053])
                         ->whereBetween('calendario.periodo', [1, 13]);
                 })
-                ->groupBy('hacienda.id')->get();
+                ->groupBy('hacienda.id', 'hacienda.detalle');
 
+            if (!empty($idhacienda) && $idhacienda !== "null") {
+                $sql = $sql->where('hacienda.id', $idhacienda);
+            }
+
+            $sql = $sql->get();
+
+            $haciendas = array();
             foreach ($sql as $item):
                 if ($item->id == 1) {
                     //Traer los datos de la semana 26, ya que este sistema empezo a capturar datos de primo en la 25 y sofca en la 26,
                     //asi que se toman los datos desde la semana 26 y se le añaden las semanas anteriores.
-                    $migracion = $this->enfundeTotalHaciendaSisban(1, 2018, 1, 13, 1, 25)->first()->total;
-                    array_push($values_primo, $item->total + $migracion);
+                    $migracion = $this->enfundeTotalHaciendaSisban(1, 2020, true, true, 1, 13, 1, 25)
+                        ->first()->total;
+                    array_push($values_primo, number_format($item->total + $migracion, 0, ',', '.'));
                 } else {
-                    $migracion = $this->enfundeTotalHaciendaSisban(3, 2018, 1, 13, 1, 25)->first()->total;
-                    array_push($values_sofca, $item->total + $migracion);
+                    $migracion = $this->enfundeTotalHaciendaSisban(3, 2020, true, true, 1, 13, 1, 25)
+                        ->first()->total;
+                    array_push($values_sofca, number_format($item->total + $migracion, 0, ',', '.'));
                 }
+
+                if (count($haciendas) == 0) {
+                    array_push($haciendas, ['id' => $item->id, 'detalle' => $item->detalle]);
+                } else {
+                    $existe = false;
+                    foreach ($haciendas as $hacienda) {
+                        if ($hacienda['id'] == $item->id && $existe == false) {
+                            $existe = true;
+                            break;
+                        }
+                    }
+                    if (!$existe) {
+                        array_push($haciendas, ['id' => $item->id, 'detalle' => $item->detalle]);
+                    }
+                }
+
             endforeach;
 
+
             $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
-            $this->out['series'] = [
-                [
-                    'name' => "Primo",
-                    'data' => $values_primo
-                ],
-                [
-                    'name' => "Sofca",
-                    'data' => $values_sofca
-                ]
-            ];
+            $this->out['series'] = array();
+
+            foreach ($haciendas as $hacienda) {
+                if ($hacienda['id'] == 1) {
+                    array_push($this->out['series'], [
+                        'name' => $hacienda['detalle'],
+                        'data' => $values_primo
+                    ]);
+                } else {
+                    array_push($this->out['series'], [
+                        'name' => $hacienda['detalle'],
+                        'data' => $values_sofca
+                    ]);
+                }
+            }
+
             $this->out['categories'] = $options;
 
             return response()->json($this->out, 200);
@@ -1463,6 +1585,9 @@ class EnfundeController extends Controller
     {
         try {
             $hacienda = $request->get('idhacienda');
+            $periodo = $request->get('periodo');
+            $semana = $request->get('semana');
+
             if (!empty($hacienda) && !is_null($hacienda)) {
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select('seccion.id', DB::raw("RIGHT('000' + LTRIM(seccion.alias), 3) as alias"),
@@ -1480,8 +1605,17 @@ class EnfundeController extends Controller
                     })
                     ->where('hacienda.id', $hacienda)
                     ->groupBy('seccion.id', 'seccion.alias', 'seccion.has')
-                    ->orderBy("seccion.has")
-                    ->get();
+                    ->orderBy("seccion.has");
+
+                if (!empty($periodo) && $periodo !== "null") {
+                    $sql = $sql->where('calendario.periodo', $periodo);
+                }
+
+                if (!empty($semana) && $semana !== "null") {
+                    $sql = $sql->where('calendario.semana', $semana);
+                }
+
+                $sql = $sql->get();
 
                 $data = [];
                 $dataId = [];
@@ -1514,6 +1648,9 @@ class EnfundeController extends Controller
     {
         try {
             $idseccion = $request->get('idseccion');
+            $periodo = $request->get('periodo');
+            $semana = $request->get('semana');
+
             if (!empty($idseccion) && !is_null($idseccion)) {
                 $dataSeccion = LoteSeccion::select(
                     'id', DB::raw("RIGHT('000' + LTRIM(alias),3) AS alias"),
@@ -1532,14 +1669,23 @@ class EnfundeController extends Controller
                     })
                     ->where('seccion.id', $idseccion)
                     ->groupBy('calendario.semana')
-                    ->orderBy('calendario.semana')
-                    ->get();
+                    ->orderBy('calendario.semana');
+
+                if (!empty($periodo) && $periodo !== "null") {
+                    $sql = $sql->where('calendario.periodo', $periodo);
+                }
+
+                if (!empty($semana) && $semana !== "null") {
+                    $sql = $sql->where('calendario.semana', $semana);
+                }
+
+                $sql = $sql->get();
 
                 $series = [];
                 $categories = [];
 
                 foreach ($sql as $item) {
-                    array_push($series, Round($item->total / $dataSeccion->has, 2));
+                    array_push($series, Round($item->total / $dataSeccion->has, 0));
                     array_push($categories, $item->semana);
                 }
 
@@ -1566,6 +1712,9 @@ class EnfundeController extends Controller
     {
         try {
             $idLote = $request->get('idlote');
+            $periodo = $request->get('periodo');
+            $semana = $request->get('semana');
+
             if (!empty($idLote) && !is_null($idLote)):
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
@@ -1590,8 +1739,17 @@ class EnfundeController extends Controller
                     ->where([
                         'seccion.id' => $idLote
                     ])
-                    ->groupBy('empleado.id', 'empleado.nombres')
-                    ->get();
+                    ->groupBy('empleado.id', 'empleado.nombres');
+
+                if (!empty($periodo) && $periodo !== "null") {
+                    $sql = $sql->where('calendario.periodo', $periodo);
+                }
+
+                if (!empty($semana) && $semana !== "null") {
+                    $sql = $sql->where('calendario.semana', $semana);
+                }
+
+                $sql = $sql->get();
 
                 $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
                 $this->out['data'] = $sql->all();
@@ -1611,6 +1769,9 @@ class EnfundeController extends Controller
     {
         try {
             $idLotero = $request->get('idlotero');
+            $periodo = $request->get('periodo');
+            $semana = $request->get('semana');
+
             if (!empty($idLotero) && !is_null($idLotero)):
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
@@ -1631,12 +1792,19 @@ class EnfundeController extends Controller
                         $inicio_fin_year = $this->codigoCalendarioAnual(2020);
                         $query->on('calendario.fecha', 'enfunde.fecha')
                             ->whereBetween('calendario.codigo', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
-                    })
-                    ->where([
+                    })->where([
                         'empleado.id' => $idLotero
-                    ])
-                    ->groupBy('seccion.id', 'seccion.alias')
-                    ->get();
+                    ])->groupBy('seccion.id', 'seccion.alias');
+
+                if (!empty($periodo) && $periodo !== "null") {
+                    $sql = $sql->where('calendario.periodo', $periodo);
+                }
+
+                if (!empty($semana) && $semana !== "null") {
+                    $sql = $sql->where('calendario.semana', $semana);
+                }
+
+                $sql = $sql->get();
 
                 $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
                 $this->out['data'] = $sql->all();
@@ -1652,23 +1820,35 @@ class EnfundeController extends Controller
         }
     }
 
-    public function enfundeTotalHaciendaSisban($hacienda, $year, ...$data)
+    public function enfundeTotalHaciendaSisban($hacienda, $year, $periodal = false, $semanal = false, ...$data)
     {
-        $tabla = $hacienda == 1 ? 'enfunde_primo' : 'enfunde_sofca';
-        return DB::connection('SISBAN')
-            ->table("$tabla AS enfunde")
-            ->select(DB::raw("SUM(enfunde.en_cantpre + enfunde.en_cantfut) AS total"))
-            ->join('calendario_dole AS calendario', function ($join) use ($year, $data) {
+        $tabla = $hacienda == 1 ? 'SISBAN.dbo.enfunde_primo' : 'SISBAN.dbo.enfunde_sofca';
+        $sql = DB::table("$tabla AS enfunde")
+            ->join('SISBAN.dbo.calendario_dole AS calendario', function ($sql) use ($year, $data, $semanal, $periodal) {
                 $inicio_fin_year = $this->codigoCalendarioAnual($year);
 
-                $join->on('calendario.fecha', '=', 'enfunde.en_fecha')
+                $sql->on('calendario.fecha', '=', 'enfunde.en_fecha')
                     ->whereBetween('calendario.idcalendar', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
 
+                $indice = [0, 1];
                 if (count($data) > 0) {
-                    $join->whereBetween('calendario.periodo', [$data[0], $data[1]])
-                        ->whereBetween('calendario.semana', [$data[2], $data[3]]);
+
+                    if ($periodal) {
+                        $sql->whereBetween('calendario.periodo', [$data[$indice[0]], $data[$indice[1]]]);
+                        if ($semanal) {
+                            $indice[0] = 2;
+                            $indice[1] = 3;
+                        }
+                    }
+
+                    if ($semanal) {
+                        $sql->whereBetween('calendario.semana', [$data[$indice[0]], $data[$indice[1]]]);
+                    }
                 }
             });
+        $sql->select(DB::raw("SUM(enfunde.en_cantpre + enfunde.en_cantfut) AS total"));
+
+        return $sql;
     }
 
     public function codigoCalendarioAnual($year)

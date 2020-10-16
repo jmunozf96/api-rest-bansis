@@ -23,4 +23,9 @@ class Material extends BaseModel
         return $this->hasOne('App\Models\Bodega\Grupo', 'id', 'idgrupo');
     }
 
+    public static function getMaterialById($id)
+    {
+        return self::where(['id' => $id])->first();
+    }
+
 }

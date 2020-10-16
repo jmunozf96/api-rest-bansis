@@ -76,6 +76,13 @@ Route::apiResource('/api/bansis-app/index.php/bodega-grupos', 'Bodega\GrupoContr
 Route::get('/api/bansis-app/index.php/bodegas-grupos-select', 'Bodega\GrupoController@customSelect');
 Route::get('/api/bansis-app/custom.php/bodegas/grupos/option', 'Bodega\GrupoController@getOptions');
 
+
+Route::prefix('api/bansis-app/index.php/bodega')->group(function () {
+    Route::apiResource('egresos', 'Bodega\BodEgresosController');
+    Route::get('search-egresos/{empleado}', 'Bodega\BodEgresosController@showByEmpleado');
+});
+
+
 //Api xass
 Route::get('/api/bansis-app/XassInventario.php/primo/productos', 'XassInventario\Primo\ProductoController@getProductos');
 Route::get('/api/bansis-app/XassInventario.php/primo/grupo/padre', 'XassInventario\Primo\GrupoController@getGruposPadre');
@@ -115,6 +122,7 @@ Route::delete('api/bansis-app/index.php/lote-seccion-labor-detalle/{id}', 'Hacie
 
 //Api Calendario
 Route::get('api/bansis-app/calendario.php/semanaEnfunde', 'Hacienda\CalendarioController@semanaEnfunde');
+Route::get('api/bansis-app/calendario.php/semanasPeriodo', 'Hacienda\CalendarioController@semanasPeriodo');
 
 //Api Enfunde
 Route::apiResource('api/bansis-app/index.php/enfunde', 'Hacienda\EnfundeController');
