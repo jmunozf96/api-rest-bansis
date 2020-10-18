@@ -316,6 +316,39 @@ class BodEgresosController extends Controller
         return response()->json($this->out, $this->out['code']);
     }
 
+    //Transferencias
+    public function saldosEmpleado(Request $request)
+    {
+        try {
+            $grupo_materiales = $request->get('grupo', null);
+            $idempleado = $request->get('empleado', null);
+
+            if (!empty($grupo_materiales) && !empty($idempleado)) {
+                $empleado = InventarioEmpleado::select('id', 'idcalendar', 'idempleado', 'idmaterial', 'sld_final')
+                    ->where([
+                        'idempleado' => $idempleado,
+                        'estado' => true
+                    ])->whereHas('material', function ($query) use ($grupo_materiales) {
+                        $query->where('idgrupo', $grupo_materiales);
+                    })->with(['material' => function ($query) {
+                        $query->select('id', 'codigo', 'descripcion', 'stock');
+                    }])
+                    ->where('sld_final', '>', 0)
+                    ->get();
+
+                $this->out = $this->respuesta_json('success', 200, "Saldos encontrados.");
+                $this->out['saldos'] = $empleado;
+            } else {
+                throw new \Exception("No se han enviado todos los parametros");
+            }
+
+        } catch (\Exception $ex) {
+            $this->out['error'] = $ex->getMessage();
+        }
+
+        return response()->json($this->out, $this->out['code']);
+    }
+
     public function validationModel($params_array)
     {
         return Validator::make($params_array, [

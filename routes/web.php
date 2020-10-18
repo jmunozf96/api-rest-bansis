@@ -80,6 +80,9 @@ Route::get('/api/bansis-app/custom.php/bodegas/grupos/option', 'Bodega\GrupoCont
 Route::prefix('api/bansis-app/index.php/bodega')->group(function () {
     Route::apiResource('egresos', 'Bodega\BodEgresosController');
     Route::get('search-egresos/{empleado}', 'Bodega\BodEgresosController@showByEmpleado');
+    Route::prefix('transferencia')->group(function (){
+        Route::get('search-saldos', 'Bodega\BodEgresosController@saldosEmpleado');
+    });
 });
 
 
