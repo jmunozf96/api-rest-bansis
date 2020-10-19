@@ -51,7 +51,8 @@ class InventarioEmpleadoController
             $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
 
             $save = true;
-            if (!is_object(InventarioEmpleado::existeInventario($inventario))) {
+            $existe = InventarioEmpleado::existeInventario($inventario);
+            if (!is_object($existe)) {
                 //Actualizar stock del material----------------------------------------------------
                 $material_stock = Material::getMaterialById($inventario->idmaterial);
                 $material_stock->stock -= $detalle['cantidad'];
@@ -64,7 +65,7 @@ class InventarioEmpleadoController
                 $save = false;
                 $saldo_negativo = false;
 
-                $inventario = InventarioEmpleado::existeInventario($inventario);
+                $inventario = $existe;
 
                 //Actualizar stock del material----------------------------------------------------
                 $material_stock = Material::getMaterialById($inventario->idmaterial);
@@ -149,6 +150,50 @@ class InventarioEmpleadoController
         } catch (\Exception $ex) {
             self::setOut([
                 'status' => 'error',
+                'message' => $ex->getMessage()
+            ]);
+        }
+
+        return self::getOut();
+    }
+
+    public static function updateInventarioByTransferSaldo($idempleado, EgresoBodegaDetalle $detalle, $cantidad_saldar = 0)
+    {
+        try {
+            $save = false;
+            //Traemos los datos del calendario
+            $calendario = self::calendario($detalle['fecha_salida']);
+
+            $inventario = new InventarioEmpleado();
+            $inventario->idcalendar = $calendario->codigo;
+            $inventario->idempleado = $idempleado;
+            $inventario->idmaterial = $detalle['idmaterial'];
+            $inventario->sld_inicial = 0;
+            $inventario->tot_egreso = $detalle['cantidad'];
+            $inventario->tot_consumo = 0;
+            $inventario->tot_devolucion = 0;
+            $inventario->created_at = Carbon::now()->format(config('constants.format_date'));
+
+            $existe = InventarioEmpleado::existeInventario($inventario);
+
+            if (is_object($existe)) {
+                $inventario = $existe;
+                $inventario->tot_egreso = ($inventario->tot_egreso - $cantidad_saldar) + $detalle['cantidad'];
+            } else {
+                $inventario->tot_egreso = $detalle['cantidad'];
+            }
+
+            $inventario->saldoFinal();
+            $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
+            $save = $inventario->save();
+
+            self::setOut([
+                'status' => $save,
+                'data' => $inventario
+            ]);
+        } catch (\Exception $ex) {
+            self::setOut([
+                'status' => false,
                 'message' => $ex->getMessage()
             ]);
         }
