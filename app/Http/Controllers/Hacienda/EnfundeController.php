@@ -710,7 +710,7 @@ class EnfundeController extends Controller
                                     if (!is_object($inventarios_empleado_siguiente_semana) && empty($inventarios_empleado_siguiente_semana)) {
                                         //Lo pasamos a la siguiente semana
                                         $inventarios_empleado_siguiente_semana = new InventarioEmpleado();
-                                        $inventarios_empleado_siguiente_semana->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
+                                        //$inventarios_empleado_siguiente_semana->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
                                         $inventarios_empleado_siguiente_semana->idempleado = $empleado;
                                         $inventarios_empleado_siguiente_semana->idmaterial = $inventario_empleado->idmaterial;
                                         $inventarios_empleado_siguiente_semana->idcalendar = $calendario_fut->codigo;
