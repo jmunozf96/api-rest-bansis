@@ -24,9 +24,56 @@ class BodEgresosController extends Controller
         $this->out = $this->respuesta_json('error', 500, 'Error en respuesta desde el servidor.');
     }
 
-    public function index()
+    public function index(Request $request)
     {
+        try {
+            $hacienda = $request->get('hacienda');
+            $labor = $request->get('labor');
+            $periodo = $request->get('periodo');
+            $semana = $request->get('semana');
+            $empleado = $request->get('empleado');
 
+            $egresos = EgresoBodega::select('BOD_EGRESOS.id', 'calendario.codigo as idcalendario',
+                'calendario.periodo', 'calendario.semana', 'BOD_EGRESOS.idempleado', 'BOD_EGRESOS.updated_at', 'BOD_EGRESOS.estado')
+                ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'BOD_EGRESOS.fecha_apertura');
+
+            if (!empty($periodo) && isset($periodo))
+                $egresos = $egresos->where('calendario.periodo', $periodo);
+
+            if (!empty($semana) && isset($semana))
+                $egresos = $egresos->where('calendario.semana', $semana);
+
+            if (!empty($empleado) && isset($empleado))
+                $egresos = $egresos->where('BOD_EGRESOS.idempleado', $empleado);
+
+            $egresos = $egresos->whereHas('egresoEmpleado', function ($query) use ($hacienda, $labor) {
+                if (!empty($hacienda) && isset($hacienda))
+                    $query->where('idhacienda', $hacienda);
+
+                if (!empty($labor) && isset($labor))
+                    $query->where('idlabor', $labor);
+
+            })->with(['egresoEmpleado' => function ($query) {
+                $query->select('id', 'idhacienda', 'nombres', 'idlabor');
+                $query->with(['labor' => function ($query) {
+                    $query->select('id', 'descripcion');
+                }]);
+            }])->orderBy('calendario.codigo', 'desc')
+                ->orderBy('BOD_EGRESOS.estado', 'DESC')
+                ->orderBy('BOD_EGRESOS.updated_at', 'DESC')
+                ->paginate(7);
+
+            if (!is_null($egresos) && !empty($egresos) && count($egresos) > 0) {
+                $this->out = $this->respuesta_json('success', 200, 'Datos encontrados.');
+                $this->out['dataArray'] = $egresos;
+                return response()->json($this->out, $this->out['code']);
+            } else {
+                throw new \Exception('Lo sentimos!, No se han encontrado datos.');
+            }
+        } catch (\Exception $exception) {
+            $this->out['message'] = $exception->getMessage();
+            return response()->json($this->out, $this->out['code']);
+        }
     }
 
     public function store(Request $request)
@@ -152,6 +199,42 @@ class BodEgresosController extends Controller
                 throw new \Exception('No se ha recibido la fecha.');
             }
 
+        } catch (\Exception $ex) {
+            $this->out['error'] = $ex->getMessage();
+        }
+
+        return response()->json($this->out, $this->out['code']);
+    }
+
+    public function showById($idTransaccion)
+    {
+        try {
+            $existe = EgresoBodegaDetalle::existeById($idTransaccion);
+            if (is_object($existe)) {
+                $egreso = EgresoBodega::from("BOD_EGRESOS as egreso")
+                    ->select('egreso.id', 'egreso.fecha_apertura as fecha', 'idempleado', 'parcial', 'final')
+                    ->where('egreso.id', $existe->id)
+                    ->with(['egresoEmpleado' => function ($query) {
+                        $query->select('id', 'nombres as descripcion', 'idhacienda', 'idlabor', 'estado');
+                        $query->with(['hacienda' => function ($query) {
+                            $query->select('id', 'detalle as descripcion', 'ruc');
+                        }]);
+                    }])
+                    ->with(['egresoDetalle' => function ($query) {
+                        $query->select('id', 'idegreso', 'fecha_salida as fecha', 'idmaterial', 'cantidad', 'movimiento');
+                        $query->with(['materialdetalle' => function ($query) {
+                            $query->select('id', 'codigo', 'descripcion', 'stock');
+                        }]);
+                    }])
+                    ->first();
+
+                if (is_object($egreso)) {
+                    $this->out = $this->respuesta_json('success', 200, 'Ya tiene despacho para esta semana');
+                    $this->out['transaccion'] = $egreso;
+                }
+            } else {
+                $this->out = $this->respuesta_json('warning', 404, 'No se encontraron despachos para esta semana.');
+            }
         } catch (\Exception $ex) {
             $this->out['error'] = $ex->getMessage();
         }
