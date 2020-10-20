@@ -676,8 +676,7 @@ class EnfundeController extends Controller
                             'idcalendar' => $enfunde->idcalendar,
                         ])->get();
 
-                        $egreso = EgresoBodega::from('BOD_EGRESOS as egreso')
-                            ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'egreso.fecha_apertura')
+                        $egreso = EgresoBodega::join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'BOD_EGRESOS.fecha_apertura')
                             ->where([
                                 'idempleado' => $empleado,
                                 'calendario.codigo' => $enfunde->idcalendar
@@ -1134,8 +1133,8 @@ class EnfundeController extends Controller
                         $empleado = $material->idreelevo;
                     }
 
-                    $egresos = EgresoBodega::from('BOD_EGRESOS as egreso')->groupBy('egreso_det.idmaterial')
-                        ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'egreso.fecha_apertura')
+                    $egresos = EgresoBodega::groupBy('egreso_det.idmaterial')
+                        ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'BOD_EGRESOS.fecha_apertura')
                         ->leftJoin('BOD_DET_EGRESOS as egreso_det', function ($join) use ($material) {
                             $join->on(['egreso_det.idegreso' => 'BOD_EGRESOS.id']);
                             $join->where(['idmaterial' => $material->idmaterial]);
@@ -1143,7 +1142,7 @@ class EnfundeController extends Controller
                         ->select('egreso_det.idmaterial', DB::raw('sum(egreso_det.cantidad) as cantidad'))
                         ->where([
                             'calendario.codigo' => $calendario,
-                            'egreso.idempleado' => $empleado,
+                            'BOD_EGRESOS.idempleado' => $empleado,
                         ])->first();
 
                     $material->despacho = 0;
