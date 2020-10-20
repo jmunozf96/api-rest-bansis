@@ -36,6 +36,7 @@ class InventarioEmpleadoController
     public static function storeInventario($idempleado, EgresoBodegaDetalle $detalle, $incrementa = false, $cantidad_a_saldar = 0)
     {
         try {
+            $saldo_negativo = false;
             //Traemos los datos del calendario
             $calendario = self::calendario($detalle['fecha_salida']);
 
@@ -63,7 +64,6 @@ class InventarioEmpleadoController
                 $inventario->save();
             } else {
                 $save = false;
-                $saldo_negativo = false;
 
                 $inventario = $existe;
 

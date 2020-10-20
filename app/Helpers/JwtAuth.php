@@ -16,7 +16,7 @@ class JwtAuth
     public function __construct()
     {
         $this->servicios = new Helper();
-        $this->key = 'jdmfadmin12311022020';
+        $this->key = 'kjjsdsk';
     }
 
     public function signup($user, $password, $getToken = null)
@@ -60,7 +60,6 @@ class JwtAuth
                 'status' => 'success',
                 'code' => 200,
                 'token' => false,
-                'recursos' => $this->servicios->getRecursosUser($usuario->id)
             );
 
             if (is_null($getToken)) {
@@ -68,6 +67,7 @@ class JwtAuth
                 $data['credential'] = $jwt;
             } else {
                 $data['credential'] = $decode;
+                $data['recursos'] = $this->servicios->getRecursosUser($usuario->id);
             }
         } else {
             $data = array(

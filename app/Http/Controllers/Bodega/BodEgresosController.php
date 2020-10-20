@@ -36,13 +36,7 @@ class BodEgresosController extends Controller
             $params_array = json_decode($json, true);
             if (!empty($params_array) && count($params_array) > 0) {
                 DB::beginTransaction();
-                $validacion = Validator::make($params_array, [
-                    'cabecera.idempleado' => 'required',
-                    'cabecera.hacienda' => 'required',
-                ], [
-                    'cabecera.empleado.id.required' => "El empleado es necesario",
-                    'cabecera.hacienda.required' => "La hacienda es necesaria",
-                ]);;
+                $validacion = $this->validationModel($params_array);
 
                 if (!$validacion->fails()) {
                     //Procesar la cabecera
@@ -152,7 +146,7 @@ class BodEgresosController extends Controller
                         $this->out['transaccion'] = $egreso;
                     }
                 } else {
-                    throw new \Exception('No se encontraron despachos para esta semana.');
+                    $this->out = $this->respuesta_json('warning', 404, 'No se encontraron despachos para esta semana.');
                 }
             } else {
                 throw new \Exception('No se ha recibido la fecha.');
@@ -184,102 +178,105 @@ class BodEgresosController extends Controller
                             $egreso->save();
 
                             $despachos = $params_array['detalle'];
-                            $romper_ciclo_detalle = '';
-                            foreach ($despachos as $despacho) {
-                                $timestamp = strtotime(str_replace('/', '-', $despacho['time']));
-                                $despacho['time'] = date(config('constants.date'), $timestamp);
-
-                                $egreso_detalle = new EgresoBodegaDetalle();
-                                $egreso_detalle->idegreso = $egreso->id;
-                                $egreso_detalle->idmaterial = $despacho['idmaterial'];
-                                $egreso_detalle->movimiento = 'EGRE-ART';
-                                $egreso_detalle->fecha_salida = $despacho['time'];
-                                $egreso_detalle->cantidad = $despacho['cantidad'];
-                                $egreso_detalle->estado = true;
-                                $egreso_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
-
-                                $save = true;
-                                $edit = false;
-
-                                //En caso de que el item exista. ejemplo:
-                                /*
-                                 * Se tiene un despacho para el mismo item:
-                                 * 12/10/2020 -> 10
-                                 * 13/10/2020 -> 30
-                                 * 14/10/2020 -> 40
-                                 *
-                                 * el 13/10/2020 se realiza una edicion, se debe cambiar los 30 por 20
-                                 *
-                                 * para actualizar el inventario, al total se le resta la cantidad anterior y se le añade la
-                                 * nueva cantidad
-                                 * $inventario->tot_egreso = ($inventario->tot_egreso - $cantidad_a_saldar) + $detalle['cantidad'];
-                                 * */
-
-                                $existe = EgresoBodegaDetalle::existe($egreso_detalle);
-                                if (is_object($existe)) {
-                                    //Verificar si no es un detalle por transferencia
-                                    $is_Transferencia = EgresoBodegaDetalleTransfer::existTransferbyDetalleEgreso($existe->id);
-                                    if (!is_object($is_Transferencia)) {
-                                        $egreso_detalle = $existe;
-
-                                        //Consultar si se ha hecho una transferencia de este egreso.
-                                        if (isset($despacho['delete']) && filter_var($despacho['delete'], FILTER_VALIDATE_BOOL)) {
-                                            //Eliminar item.
-
-                                            $respuesta = InventarioEmpleadoController::reduceInventario($egreso->idempleado, $egreso_detalle);
-
-                                            if ($respuesta['negativo']) {
-                                                InventarioEmpleadoController::storeInventario($egreso->idempleado, $egreso_detalle, true);
-                                                $romper_ciclo_detalle = "Un registro no se pudo eliminar, el consumo no puede ser mayor a lo que se despacho.";
-                                                break;
-                                            }
-
-                                            $egreso_detalle->delete();
-
-                                        } else {
-                                            //Editar item
-                                            $cantidad_a_saldar = $egreso_detalle->cantidad;
-                                            $egreso_detalle->cantidad = $despacho['cantidad'];
-
-                                            //Actualizacion de los items de despacho
-                                            //Procesar Inventario de empleado
-                                            $respuesta = InventarioEmpleadoController::storeInventario($egreso->idempleado,
-                                                $egreso_detalle, false, $cantidad_a_saldar);
-
-                                            if ($respuesta['negativo']) {
-                                                $romper_ciclo_detalle = "Un registro no se pudo editar, el consumo no puede ser mayor a lo que se despacho.";
-                                                break;
-                                            }
-
-                                            $egreso_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
-                                            $egreso_detalle->save();
-                                        }
-                                    }
-                                } else {
-                                    //Edicion de transaccion, pero se añadio un nuevo item de despacho
-                                    $egreso_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
-                                    $egreso_detalle->save();
-                                    //Procesar Inventario de empleado por incremento
-                                    InventarioEmpleadoController::storeInventario($egreso->idempleado, $egreso_detalle, true);
-                                }
-                            }
-
-                            if (EgresoBodegaDetalle::rowsItems($egreso->id) == 0) {
-                                $egreso->delete();
-                            }
-
-                            $this->out = $this->respuesta_json('success', 200, 'Despacho actualizado con éxito!!!');
-                            $this->out['error_ciclo'] = $romper_ciclo_detalle;
-
-                            //Procesar transferencias de saldo en caso de existir
                             $transferencias = $params_array['transferencias'];
-                            if (!empty($transferencias) && count($transferencias) > 0) {
-                                //Proceso de transferencias
-                                $resultado_transferencias = $this->SaldoTransfer($transferencias, $egreso);
-                                $this->out['transferencias'] = $resultado_transferencias;
+
+                            if (count($despachos) > 0 || count($transferencias)) {
+                                $romper_ciclo_detalle = '';
+                                foreach ($despachos as $despacho) {
+                                    $timestamp = strtotime(str_replace('/', '-', $despacho['time']));
+                                    $despacho['time'] = date(config('constants.date'), $timestamp);
+
+                                    $egreso_detalle = new EgresoBodegaDetalle();
+                                    $egreso_detalle->idegreso = $egreso->id;
+                                    $egreso_detalle->idmaterial = $despacho['idmaterial'];
+                                    $egreso_detalle->movimiento = 'EGRE-ART';
+                                    $egreso_detalle->fecha_salida = $despacho['time'];
+                                    $egreso_detalle->cantidad = $despacho['cantidad'];
+                                    $egreso_detalle->estado = true;
+                                    $egreso_detalle->created_at = Carbon::now()->format(config('constants.format_date'));
+
+                                    //En caso de que el item exista. ejemplo:
+                                    /*
+                                     * Se tiene un despacho para el mismo item:
+                                     * 12/10/2020 -> 10
+                                     * 13/10/2020 -> 30
+                                     * 14/10/2020 -> 40
+                                     *
+                                     * el 13/10/2020 se realiza una edicion, se debe cambiar los 30 por 20
+                                     *
+                                     * para actualizar el inventario, al total se le resta la cantidad anterior y se le añade la
+                                     * nueva cantidad
+                                     * $inventario->tot_egreso = ($inventario->tot_egreso - $cantidad_a_saldar) + $detalle['cantidad'];
+                                     * */
+
+                                    $existe = EgresoBodegaDetalle::existe($egreso_detalle);
+                                    if (is_object($existe)) {
+                                        //Verificar si no es un detalle por transferencia
+                                        $is_Transferencia = EgresoBodegaDetalleTransfer::existTransferbyDetalleEgreso($existe->id);
+                                        if (!is_object($is_Transferencia)) {
+                                            $egreso_detalle = $existe;
+
+                                            //Consultar si se ha hecho una transferencia de este egreso.
+                                            if (isset($despacho['delete']) && filter_var($despacho['delete'], FILTER_VALIDATE_BOOL)) {
+                                                //Eliminar item.
+
+                                                $respuesta = InventarioEmpleadoController::reduceInventario($egreso->idempleado, $egreso_detalle);
+
+                                                if ($respuesta['negativo']) {
+                                                    InventarioEmpleadoController::storeInventario($egreso->idempleado, $egreso_detalle, true);
+                                                    $romper_ciclo_detalle = "Un registro no se pudo eliminar, el consumo no puede ser mayor a lo que se despacho.";
+                                                    break;
+                                                }
+
+                                                $egreso_detalle->delete();
+
+                                            } else {
+                                                //Editar item
+                                                $cantidad_a_saldar = $egreso_detalle->cantidad;
+                                                $egreso_detalle->cantidad = $despacho['cantidad'];
+
+                                                //Actualizacion de los items de despacho
+                                                //Procesar Inventario de empleado
+                                                $respuesta = InventarioEmpleadoController::storeInventario($egreso->idempleado,
+                                                    $egreso_detalle, false, $cantidad_a_saldar);
+
+                                                if ($respuesta['negativo']) {
+                                                    $romper_ciclo_detalle = "Un registro no se pudo editar, el consumo no puede ser mayor a lo que se despacho.";
+                                                    break;
+                                                }
+
+                                                $egreso_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                                $egreso_detalle->save();
+                                            }
+                                        }
+                                    } else {
+                                        //Edicion de transaccion, pero se añadio un nuevo item de despacho
+                                        $egreso_detalle->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                        $egreso_detalle->save();
+                                        //Procesar Inventario de empleado por incremento
+                                        InventarioEmpleadoController::storeInventario($egreso->idempleado, $egreso_detalle, true);
+                                    }
+                                }
+
+                                if (EgresoBodegaDetalle::rowsItems($egreso->id) == 0) {
+                                    $egreso->delete();
+                                }
+
+                                $this->out = $this->respuesta_json('success', 200, 'Despacho actualizado con éxito!!!');
+                                $this->out['error_ciclo'] = $romper_ciclo_detalle;
+
+                                //Procesar transferencias de saldo en caso de existir
+                                if (!empty($transferencias) && count($transferencias) > 0) {
+                                    //Proceso de transferencias
+                                    $resultado_transferencias = $this->SaldoTransfer($transferencias, $egreso);
+                                    $this->out['transferencias'] = $resultado_transferencias;
+                                }
+
+                                DB::commit();
+                            } else {
+                                $this->out = $this->respuesta_json('success', 200, 'No se realizo ningun cambio.');
                             }
 
-                            DB::commit();
                         } else {
                             $this->out['validacion'] = $validacion->errors()->all();
                             throw new \Exception('Error en la validacion de datos.');
@@ -467,11 +464,9 @@ class BodEgresosController extends Controller
         return Validator::make($params_array, [
             'cabecera.idempleado' => 'required',
             'cabecera.hacienda' => 'required',
-            'detalle' => 'required|array',
         ], [
             'cabecera.empleado.id.required' => "El empleado es necesario",
             'cabecera.hacienda.required' => "La hacienda es necesaria",
-            'detalle.required' => "No se ha seleccionado ningun material"
         ]);
     }
 

@@ -502,7 +502,7 @@ class EnfundeController extends Controller
 
             //return response()->json($materiales, 200);
             foreach ($inventarios as $inventario):
-                $inventario['tot_devolucion'] = 0;
+                $inventario['tot_consumo'] = 0;
                 $inventario['sld_final'] = intval($inventario['sld_inicial']) + intval($inventario['tot_egreso']);
                 $inventario->save();
             endforeach;
@@ -567,12 +567,12 @@ class EnfundeController extends Controller
                 }
 
                 if (is_object($inventario)) {
-                    if ($inventario->tot_devolucion >= $cantidad) {
-                        $inventario->tot_devolucion = ($inventario->tot_devolucion - $cantidad) + $semana['cantidad'];
+                    if ($inventario->tot_consumo >= $cantidad) {
+                        $inventario->tot_consumo = ($inventario->tot_consumo - $cantidad) + $semana['cantidad'];
                     } else {
-                        $inventario->tot_devolucion += $semana['cantidad'];
+                        $inventario->tot_consumo += $semana['cantidad'];
                     }
-                    $inventario->sld_final = ($inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_devolucion;
+                    $inventario->sld_final = ($inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_consumo;
                     $inventario->save();
                 }
 
@@ -603,8 +603,8 @@ class EnfundeController extends Controller
 
             if (is_object($inventario) && !empty($inventario)) {
                 //Bajar inventario
-                $inventario->tot_devolucion += intval($cantidad);
-                $inventario->sld_final = (+$inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_devolucion;
+                $inventario->tot_consumo += intval($cantidad);
+                $inventario->sld_final = (+$inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_consumo;
                 $inventario->updated_at = Carbon::now()->format(config('constants.format_date'));
                 $inventario->save();
             }
@@ -699,7 +699,7 @@ class EnfundeController extends Controller
                             if (is_object($inventario_empleado)) {
                                 $inventario_empleado->estado = 0;
                                 $inventario_empleado->save();
-                                if ($inventario_empleado->sld_final > 0 || $inventario_empleado->tot_devolucion == 0) {
+                                if ($inventario_empleado->sld_final > 0 || $inventario_empleado->tot_consumo == 0) {
                                     //Si ya se ha registrado un despacho
                                     $inventarios_empleado_siguiente_semana = InventarioEmpleado::where([
                                         'idempleado' => $empleado,
@@ -715,12 +715,12 @@ class EnfundeController extends Controller
                                         $inventarios_empleado_siguiente_semana->idmaterial = $inventario_empleado->idmaterial;
                                         $inventarios_empleado_siguiente_semana->idcalendar = $calendario_fut->codigo;
                                         $inventarios_empleado_siguiente_semana->tot_egreso = 0;
-                                        $inventarios_empleado_siguiente_semana->tot_devolucion = 0;
+                                        $inventarios_empleado_siguiente_semana->tot_consumo = 0;
                                         $inventarios_empleado_siguiente_semana->created_at = Carbon::now()->format(config('constants.format_date'));
                                     }
 
                                     $inventarios_empleado_siguiente_semana->sld_inicial = $inventario_empleado->sld_final;
-                                    $inventarios_empleado_siguiente_semana->sld_final = (+$inventarios_empleado_siguiente_semana->sld_inicial + +$inventarios_empleado_siguiente_semana->tot_egreso) - $inventarios_empleado_siguiente_semana->tot_devolucion;
+                                    $inventarios_empleado_siguiente_semana->sld_final = (+$inventarios_empleado_siguiente_semana->sld_inicial + +$inventarios_empleado_siguiente_semana->tot_egreso) - $inventarios_empleado_siguiente_semana->tot_consumo;
                                     $inventarios_empleado_siguiente_semana->updated_at = Carbon::now()->format(config('constants.format_date'));
                                     $inventarios_empleado_siguiente_semana->save();
                                 }
@@ -833,7 +833,7 @@ class EnfundeController extends Controller
                                 ->where(['id' => $detalle->idreelevo])->first();
                         }
 
-                        $inventario = InventarioEmpleado::select('id', 'idcalendar', 'idempleado', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_devolucion', 'sld_final', 'estado')
+                        $inventario = InventarioEmpleado::select('id', 'idcalendar', 'idempleado', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_consumo', 'sld_final', 'estado')
                             ->where([
                                 'idempleado' => !is_null($detalle->idreelevo) ? $reelevo->id : $idempleado,
                                 'idmaterial' => $detalle->idmaterial,
@@ -955,8 +955,8 @@ class EnfundeController extends Controller
                                     'idmaterial' => $item->material
                                 ])->first();
 
-                                $inventario->tot_devolucion = $inventario->tot_devolucion - $item->cantidad;
-                                $inventario->sld_final = ($inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_devolucion;
+                                $inventario->tot_consumo = $inventario->tot_consumo - $item->cantidad;
+                                $inventario->sld_final = ($inventario->sld_inicial + $inventario->tot_egreso) - $inventario->tot_consumo;
                                 $respuesta = $inventario->save();
                                 //return response()->json($inventario, 200);
 
@@ -1152,7 +1152,7 @@ class EnfundeController extends Controller
                         $material->despacho = $egresos->cantidad;
                     }
 
-                    $inventario = InventarioEmpleado::select('id', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_devolucion', 'sld_final')
+                    $inventario = InventarioEmpleado::select('id', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_consumo', 'sld_final')
                         ->where([
                             'idcalendar' => $calendario,
                             'idempleado' => $empleado,

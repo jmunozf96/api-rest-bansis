@@ -15,7 +15,7 @@ class InventarioEmpleado extends BaseModel
 
     public function saldoFinal()
     {
-        $this->sld_final = ($this->sld_inicial + $this->tot_egreso) - ($this->tot_consumo + $this->tot_devolucion);
+        $this->sld_final = (($this->sld_inicial + $this->tot_egreso) - $this->tot_consumo);
     }
 
     public static function existeInventario(InventarioEmpleado $inventario)
