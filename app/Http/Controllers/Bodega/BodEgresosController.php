@@ -209,7 +209,7 @@ class BodEgresosController extends Controller
     public function showById($idTransaccion)
     {
         try {
-            $existe = EgresoBodegaDetalle::existeById($idTransaccion);
+            $existe = EgresoBodega::existeById($idTransaccion);
             if (is_object($existe)) {
                 $egreso = EgresoBodega::from("BOD_EGRESOS as egreso")
                     ->select('egreso.id', 'egreso.fecha_apertura as fecha', 'idempleado', 'parcial', 'final')
