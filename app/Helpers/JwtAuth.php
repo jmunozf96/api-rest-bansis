@@ -85,22 +85,23 @@ class JwtAuth
         $auth = false;
 
         try {
-            $jwt = str_replace('"', '', $jwt);
+            //$jwt = str_replace('"', '', $jwt);
             $decode = JWT::decode($jwt, $this->key, ['HS256']);
+
+            if (!empty($decode) && is_object($decode) && isset($decode->sub)) {
+                $auth = true;
+            } else {
+                $auth = false;
+            }
+
+            if ($getIdentity) {
+                return $decode;
+            }
+
         } catch (\UnexpectedValueException $ex) {
             $auth = false;
         } catch (\DomainException $ex) {
             $auth = false;
-        }
-
-        if (!empty($decode) && is_object($decode) && isset($decode->sub)) {
-            $auth = true;
-        } else {
-            $auth = false;
-        }
-
-        if ($getIdentity) {
-            return $decode;
         }
 
         return $auth;
