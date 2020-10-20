@@ -676,10 +676,12 @@ class EnfundeController extends Controller
                             'idcalendar' => $enfunde->idcalendar,
                         ])->get();
 
-                        $egreso = EgresoBodega::where([
-                            'idempleado' => $empleado,
-                            'idcalendario' => $enfunde->idcalendar
-                        ])->first();
+                        $egreso = EgresoBodega::from('BOD_EGRESOS as egreso')
+                            ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'egreso.fecha_apertura')
+                            ->where([
+                                'idempleado' => $empleado,
+                                'calendario.codigo' => $enfunde->idcalendar
+                            ])->first();
 
                         if (is_object($egreso)) {
                             $egreso->estado = false;
@@ -1132,15 +1134,16 @@ class EnfundeController extends Controller
                         $empleado = $material->idreelevo;
                     }
 
-                    $egresos = EgresoBodega::groupBy('egreso_det.idmaterial')
+                    $egresos = EgresoBodega::from('BOD_EGRESOS as egreso')->groupBy('egreso_det.idmaterial')
+                        ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'egreso.fecha_apertura')
                         ->leftJoin('BOD_DET_EGRESOS as egreso_det', function ($join) use ($material) {
                             $join->on(['egreso_det.idegreso' => 'BOD_EGRESOS.id']);
                             $join->where(['idmaterial' => $material->idmaterial]);
                         })
                         ->select('egreso_det.idmaterial', DB::raw('sum(egreso_det.cantidad) as cantidad'))
                         ->where([
-                            'BOD_EGRESOS.idcalendario' => $calendario,
-                            'BOD_EGRESOS.idempleado' => $empleado,
+                            'calendario.codigo' => $calendario,
+                            'egreso.idempleado' => $empleado,
                         ])->first();
 
                     $material->despacho = 0;

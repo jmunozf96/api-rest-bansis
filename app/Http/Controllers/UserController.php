@@ -195,29 +195,16 @@ class UserController extends Controller
     public function verifyToken(Request $request)
     {
         try {
-            $json = $request->input('json');
-            $params = json_decode($json);
+            $token = $request->header('Authorization');
 
-            if (is_object($params)) {
-                $token = $request->header('Authorization');
+            if (!empty($token)) {
                 $jwtauth = new JwtAuth();
                 $checkTocken = $jwtauth->checkToken($token);
 
-                $credentials = null;
-                $recursos = [];
-
-                if ($checkTocken) {
-                    if ($params->credentials)
-                        $credentials = $jwtauth->checkToken($token, true);
-                    if ($params->recursos)
-                        $recursos = $this->servicios->getRecursosUser($jwtauth->checkToken($token, true)->sub);
-                }
-
                 return response()->json([
-                    'credentials' => $credentials,
+                    'code' => 200,
                     'logueado' => $checkTocken,
-                    'recursos' => $recursos,
-                    'sub' => $jwtauth->checkToken($token, true)->sub
+                    'token' => $jwtauth->checkToken($token, true)
                 ], 200);
             }
 
