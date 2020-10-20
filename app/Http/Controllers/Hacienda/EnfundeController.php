@@ -1824,8 +1824,8 @@ class EnfundeController extends Controller
 
     public function enfundeTotalHaciendaSisban($hacienda, $year, $periodal = false, $semanal = false, ...$data)
     {
-        $tabla = $hacienda == 1 ? 'SISBAN.dbo.enfunde_primo' : 'SISBAN.dbo.enfunde_sofca';
-        $sql = DB::table("$tabla AS enfunde")
+        $tabla = $hacienda == 1 ? 'dbo.enfunde_primo' : 'dbo.enfunde_sofca';
+        $sql = DB::connection('SISBAN')->table("$tabla AS enfunde")
             ->join('SISBAN.dbo.calendario_dole AS calendario', function ($sql) use ($year, $data, $semanal, $periodal) {
                 $inicio_fin_year = $this->codigoCalendarioAnual($year);
 
