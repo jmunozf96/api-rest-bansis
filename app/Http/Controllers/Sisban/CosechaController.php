@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Sisban;
 
+use App\Events\CosechaPrimo;
 use App\Helpers\Helper;
 use App\Http\Controllers\Controller;
 use App\Models\Hacienda\LoteSeccion;
@@ -20,7 +21,7 @@ class CosechaController extends Controller
     public function __construct()
     {
         $this->middleware('api.auth', ['except' => ['index', 'show',
-            'statusCosecha', 'getCosecha',
+            'statusCosecha', 'getCosecha', 'executeEventBalanzaPrimo',
             'getCintasSemana', 'getCosechaLote', 'getLotesCortadosDia',
             'getCajasDia', 'getLotesRecobro', 'getCintaRecobro']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
@@ -41,7 +42,6 @@ class CosechaController extends Controller
         //
     }
 
-
     public function show($id)
     {
         //
@@ -53,6 +53,29 @@ class CosechaController extends Controller
         //
     }
 
+    public function executeEventBalanzaPrimo()
+    {
+        $cosecha = DB::connection('SISBAN')->table('cosecha_primo_pruebas_temp')
+            ->orderBy('fechacre', 'desc')
+            ->take(1)
+            ->lock('WITH(NOLOCK)')
+            ->first();
+
+        //Luego la aliminas
+        event(new CosechaPrimo($cosecha));
+    }
+
+    public function executeEventBalanzaSofca()
+    {
+        $cosecha = $this->cosechaHacienda(2)
+            ->orderBy('fechacre', 'desc')
+            ->take(1)
+            ->lock('WITH(NOLOCK)')
+            ->first();
+
+        //Luego la aliminas
+        event(new CosechaPrimo($cosecha));
+    }
 
     public function destroy($id)
     {
@@ -63,9 +86,9 @@ class CosechaController extends Controller
     {
         $cosecha = null;
         if ($hacienda == 1) {
-            $cosecha = DB::connection('SISBAN')->table('cosecha_primo');
+            $cosecha = DB::connection('SISBAN')->table('cosecha_primo_pruebas_temp');
         } else {
-            $cosecha = DB::connection('SISBAN')->table('cosecha_sofca');
+            $cosecha = DB::connection('SISBAN')->table('cosecha_sofca_temp');
         }
         return $cosecha;
     }
@@ -92,6 +115,26 @@ class CosechaController extends Controller
         return $perdidas;
     }
 
+    public function loadingData(Request $request)
+    {
+        try {
+            $json = $request->input('json', null);
+            $params_array = json_decode($json, true);
+
+            if (!empty($params_array)) {
+                $this->out['data'] = $params_array;
+                $this->out['cintas'] = $this->getCintasSemana($params_array['semanas'], $params_array['fecha']);
+                $this->out['cosecha'] = $this->getCosechaDia(1, $params_array['fecha']);
+                return response()->json($this->out, 200);
+            }
+
+            throw new \Exception('No se han enviado parametros');
+        } catch (\Exception $ex) {
+            $this->out['error'] = $ex->getMessage();
+            return response()->json($this->out, 500);
+        }
+    }
+
     public function statusCosecha($hacienda, Request $request)
     {
         try {
@@ -107,56 +150,6 @@ class CosechaController extends Controller
             $this->out = $this->respuesta_json('success', 200, 'Contador Activo');
             $this->out['contador'] = $cosecha;
             return response()->json($this->out, 200);
-        } catch (\Exception $ex) {
-            $this->out['message'] = $ex->getMessage();
-            return response()->json($this->out, 500);
-        }
-    }
-
-    public function getCintaRecobro($hacienda, Request $request)
-    {
-        try {
-            $hacienda = $hacienda == 3 ? 2 : 1;
-            $cinta = $request->get('cinta');
-
-            $fecha = $request->get('fecha');
-            $fecha = strtotime(str_replace('/', '-', $fecha));
-            $fecha = date(config('constants.date'), $fecha);
-
-            if (!empty($cinta) && !is_null($cinta)) {
-                $enfunde_cinta = $this->enfundeCintaHacienda($hacienda)
-                    ->select('en_color', DB::raw('SUM(en_cantpre + en_cantfut) as total'))
-                    ->where('en_color', $cinta)
-                    ->groupBy('en_color')->first();
-
-                $racimos_cortados = $this->cosechaHacienda($hacienda)
-                    ->select(DB::raw('COUNT(cs_peso) as total'))
-                    ->where('cs_color', $cinta)
-                    ->where('cs_fecha', '<>', $fecha)
-                    ->first();
-
-                $perdidas = $this->perdidasCinta($hacienda)->select(DB::raw("SUM(pe_cant) as total"))
-                    ->where('pe_color', $cinta)
-                    ->first();
-
-                $cinta = DB::connection('SISBAN')->table('calendario_dole')
-                    ->select('color', 'idcalendar')
-                    ->where('idcalendar', $cinta)
-                    ->first();
-
-                return response()->json([
-                    'code' => 200,
-                    'recobro' => [
-                        'codigo' => $cinta->idcalendar,
-                        'cinta' => $cinta->color,
-                        'enfunde' => $enfunde_cinta->total,
-                        'caidas' => $perdidas->total,
-                        'cortados' => $racimos_cortados->total,
-                        'recobro' => (1 - ($racimos_cortados->total / $enfunde_cinta->total)) * 100
-                    ],
-                ], 200);
-            }
-            throw new \Exception('No se ha enviado parametro de cinta');
         } catch (\Exception $ex) {
             $this->out['message'] = $ex->getMessage();
             return response()->json($this->out, 500);
@@ -194,7 +187,7 @@ class CosechaController extends Controller
         }
     }
 
-    public function getCosechaLote($hacienda, Request $request)
+    /*public function getCosechaLote($hacienda, Request $request)
     {
         try {
             $hacienda = $hacienda == 3 ? 2 : 1;
@@ -238,7 +231,7 @@ class CosechaController extends Controller
             $this->out['message'] = $ex->getMessage();
             return response()->json($this->out, 500);
         }
-    }
+    }*/
 
     public function getLotesCortadosDia($hacienda, Request $request)
     {
@@ -285,58 +278,169 @@ class CosechaController extends Controller
         }
     }
 
-    public function getCintasSemana(Request $request)
+    public function getCintasSemana($cintas, $fecha)
     {
-        try {
-            $fecha = $request->get('fecha');
-            $fecha = strtotime(str_replace('/', '-', $fecha));
-            $fecha = date(config('constants.date'), $fecha);
+        $fecha = strtotime(str_replace('/', '-', $fecha));
+        $fecha = date(config('constants.date'), $fecha);
+        $cintas_semana = array();
 
-            if (!empty($fecha) && !is_null($fecha)) {
-                $dias = (12 * 7);
-                $fecha13 = date("d - m - Y", strtotime($fecha . " - $dias days"));
-                $cintas13Semanas = DB::connection('SISBAN')->table('calendario_dole')
-                    ->select(DB::raw('semanaCorte = 13'), 'idcalendar as codigo', 'color', 'semana as SemanaEnfunde')
-                    ->where("fecha", $fecha13);
+        if (!empty($fecha) && !is_null($fecha)) {
+            foreach ($cintas as $cinta) {
+                $dias = (($cinta['value'] - 1) * 7);
+                $fecha_nw = date("d - m - Y", strtotime($fecha . " - $dias days"));
 
-                $dias = (11 * 7);
-                $fecha12 = date("d - m - Y", strtotime($fecha . " - $dias days"));
-                $cintas12Semanas = DB::connection('SISBAN')->table('calendario_dole')
-                    ->select(DB::raw('semanaCorte = 12'), 'idcalendar', 'color', 'semana as SemanaEnfunde')
-                    ->where("fecha", $fecha12)->unionAll($cintas13Semanas);
-
-                $dias = (10 * 7);
-                $fecha11 = date("d - m - Y", strtotime($fecha . " - $dias days"));
-                $cintas11Semanas = DB::connection('SISBAN')->table('calendario_dole')
-                    ->select(DB::raw('semanaCorte = 11'), 'idcalendar', 'color', 'semana as SemanaEnfunde')
-                    ->where("fecha", $fecha11)->unionAll($cintas12Semanas);
-
-                $dias = (9 * 7);
-                $fecha10 = date("d - m - Y", strtotime($fecha . " - $dias days"));
-                $cintas10Semanas = DB::connection('SISBAN')->table('calendario_dole')
-                    ->select(DB::raw('semanaCorte = 10'), 'idcalendar', 'color', 'semana as SemanaEnfunde')
-                    ->where("fecha", $fecha10)->unionAll($cintas11Semanas);
-
-                $dias = (8 * 7);
-                $fecha10 = date("d - m - Y", strtotime($fecha . " - $dias days"));
-                $cintas09Semanas = DB::connection('SISBAN')->table('calendario_dole')
-                    ->select(DB::raw('semanaCorte = 9'), 'idcalendar', 'color', 'semana as SemanaEnfunde')
-                    ->where("fecha", $fecha10)->unionAll($cintas10Semanas)
+                $data = DB::connection('SISBAN')->table('calendario_dole')
+                    ->select(DB::raw("semanaCorte = " . $cinta['value']), 'idcalendar',
+                        'color', 'semana as SemanaEnfunde')
+                    ->where("fecha", $fecha_nw)
                     ->orderBy('semanaCorte', 'desc')
-                    ->get();
+                    ->first();
 
-                $cintasSemana = $cintas09Semanas;
-
-                return response()->json([
-                    'code' => 200,
-                    'cintas' => $cintasSemana
-                ], 200);
+                array_push($cintas_semana, ['cinta' => [
+                    'data' => $data,
+                    'recobro' => $this->getCintaRecobro(1, $data->idcalendar, $fecha),
+                    'lotes' => $this->getLotesRecobro(1, $data->idcalendar),
+                ]]);
             }
-            throw new \Exception('No se ha enviado parametro de fecha');
-        } catch (\Exception $ex) {
-            $this->out['message'] = $ex->getMessage();
-            return response()->json($this->out, 500);
         }
+        return $cintas_semana;
+    }
+
+    public function getCintaRecobro($hacienda, $cinta, $fecha)
+    {
+        $hacienda = $hacienda == 3 ? 2 : 1;
+
+        $fecha = strtotime(str_replace('/', '-', $fecha));
+        $fecha = date(config('constants.date'), $fecha);
+
+        $recobro = array();
+
+        if (!empty($cinta) && !is_null($cinta)) {
+            $enfunde_cinta = $this->enfundeCintaHacienda($hacienda)
+                ->select('en_color', DB::raw('SUM(en_cantpre + en_cantfut) as total'))
+                ->where('en_color', $cinta)
+                ->groupBy('en_color')->first();
+
+            $racimos_cortados = $this->cosechaHacienda($hacienda)
+                ->select(DB::raw('COUNT(cs_peso) as total'))
+                ->where('cs_color', $cinta)
+                ->where('cs_fecha')
+                ->first();
+
+            $perdidas = $this->perdidasCinta($hacienda)->select(DB::raw("SUM(pe_cant) as total"))
+                ->where('pe_color', $cinta)
+                ->first();
+
+            $cinta = DB::connection('SISBAN')->table('calendario_dole')
+                ->select('color', 'idcalendar')
+                ->where('idcalendar', $cinta)
+                ->first();
+
+            $recobro = [
+                'codigo' => $cinta->idcalendar,
+                'cinta' => $cinta->color,
+                'enfunde' => $enfunde_cinta->total,
+                'caidas' => $perdidas->total,
+                'cortados' => $racimos_cortados->total,
+                'recobro' => (1 - ($racimos_cortados->total / $enfunde_cinta->total)) * 100
+            ];
+        }
+        return $recobro;
+    }
+
+    public function getLotesRecobro($hacienda, $cinta)
+    {
+        $lotes = LoteSeccion::join('HAC_LOTES as lote', 'lote.id', 'HAC_LOTES_SECCION.idlote')
+            ->select('HAC_LOTES_SECCION.id', 'HAC_LOTES_SECCION.has', 'HAC_LOTES_SECCION.variedad',
+                DB::raw("(right('0' + lote.identificacion,2) + HAC_LOTES_SECCION.descripcion) as descripcion"))
+            ->whereHas('lote', function ($query) use ($hacienda) {
+                $query->where('idhacienda', $hacienda);
+            })
+            ->where('HAC_LOTES_SECCION.estado', true)
+            ->orderByRaw("(right('0' + lote.identificacion,2) + HAC_LOTES_SECCION.descripcion)")
+            ->get();
+
+
+        $hacienda = $hacienda == 3 ? 2 : 1;
+        $series = array();
+        $cortados = array();
+        $saldos = array();
+        $labels = array();
+        $data = array();
+
+        if (count($lotes) > 0) {
+            foreach ($lotes as $lote):
+                $enfunde = $this->enfundeCintaHacienda($hacienda)
+                    ->where([
+                        ['en_seccion', 'like', '%' . $lote->descripcion . '%'],
+                        'en_color' => $cinta
+                    ])
+                    ->get()->sum(function ($query) {
+                        return $query->en_cantpre + $query->en_cantfut;
+                    });
+
+                $cortado = $this->cosechaHacienda($hacienda)->where([
+                    ['cs_seccion', 'like', '%' . $lote->descripcion . '%'],
+                    'cs_color' => $cinta
+                ])->lock('WITH(NOLOCK)')->get()->count();
+
+                $perdidas = $this->perdidasCinta($hacienda)
+                    ->where('pe_color', $cinta)
+                    ->where('pe_seccion', $lote->descripcion)
+                    ->get()->sum(function ($query) {
+                        return $query->pe_cant;
+                    });
+
+                array_push($data, (object)[
+                    'lote' => $lote->descripcion,
+                    'caidas' => $perdidas,
+                    'enfunde' => $enfunde
+                ]);
+                array_push($cortados, $cortado + $perdidas);
+                array_push($series, $enfunde);
+                array_push($saldos, ($enfunde - ($cortado + $perdidas)) >= 0 ? ($enfunde - ($cortado + $perdidas)) : 0);
+                array_push($labels, $lote->descripcion);
+                $lote->enfunde = $enfunde;
+                $lotes->cortados = 0;
+            endforeach;
+        }
+
+        return [
+            'data' => $data,
+            'enfunde' => [
+                'name' => 'Enfunde',
+                'type' => 'line',
+                'data' => $series
+            ],
+            'cortados' => [
+                'name' => 'Recobro',
+                'type' => 'column',
+                'data' => $cortados
+            ],
+            'saldos' => [
+                'name' => 'Saldo',
+                'type' => 'column',
+                'data' => $saldos
+            ],
+            'categories' => $labels
+        ];
+    }
+
+    public function getCosechaDia($hacienda, $fecha)
+    {
+        $fecha = strtotime(str_replace('/', '-', $fecha));
+        $fecha = date(config('constants.date'), $fecha);
+
+        return DB::connection('SISBAN')->table('cosecha_primo_pruebas_temp')
+            ->select(DB::raw("max(cs_id) as cs_id"), 'cs_fecha', 'cs_haciend', 'cs_seccion',
+                DB::raw("count(*) as cs_cortados"),
+                DB::raw("sum(cs_peso) as cs_peso"),
+                'cs_color', DB::raw("max(fechacre) as ultima_actualizacion"))
+            ->where('cs_fecha', $fecha)
+            ->where('cs_haciend', $hacienda)
+            ->groupBy('cs_fecha', 'cs_haciend', 'cs_seccion', 'cs_color')
+            ->orderBy(DB::raw("max(fechacre)"), 'desc')
+            ->get();
     }
 
     public function getCajasDia($hacienda, Request $request)
@@ -367,6 +471,10 @@ class CosechaController extends Controller
                             return $data['idcaja'] == $item;
                         });
 
+                        $last_pesada = array_reduce($data_nw, function ($A, $B) {
+                            return $A['last'] > $B['last'] ? $A : $B;
+                        }, array_shift($data_nw));
+
                         $total_pesadas = array_reduce($data_nw, function ($total, $item) {
                             $total += $item['totalpesadas'];
                             return $total;
@@ -392,6 +500,7 @@ class CosechaController extends Controller
                             'codigo' => $datos_Caja->cod_cj,
                             'descripcion' => $datos_Caja->des_cj
                         ];
+                        $caja->last = $last_pesada['last'];
 
                         array_push($data_cajas, $caja);
                         //$item['total'] = $total_cajas;
@@ -415,6 +524,7 @@ class CosechaController extends Controller
                             'codigo' => $datos_Caja->cod_cj,
                             'descripcion' => $datos_Caja->des_cj
                         ];
+                        $caja->last = $item->last;
 
                         array_push($data_cajas, $caja);
                         //$item['total'] = $total_cajas;
@@ -426,90 +536,6 @@ class CosechaController extends Controller
             }
 
             throw new \Exception('No se encontraron registros de caja para etsa fecha!');
-        } catch (\Exception $ex) {
-            $this->out['message'] = $ex->getMessage();
-            return response()->json($this->out, 500);
-        }
-    }
-
-    public function getLotesRecobro($hacienda, Request $request)
-    {
-        try {
-            $cinta = $request->get('cinta');
-            $lotes = LoteSeccion::join('HAC_LOTES as lote', 'lote.id', 'HAC_LOTES_SECCION.idlote')
-                ->select('HAC_LOTES_SECCION.id', 'HAC_LOTES_SECCION.has', 'HAC_LOTES_SECCION.variedad',
-                    DB::raw("(right('0' + lote.identificacion,2) + HAC_LOTES_SECCION.descripcion) as descripcion"))
-                ->whereHas('lote', function ($query) use ($hacienda) {
-                    $query->where('idhacienda', $hacienda);
-                })
-                ->where('HAC_LOTES_SECCION.estado', true)
-                ->orderByRaw("(right('0' + lote.identificacion,2) + HAC_LOTES_SECCION.descripcion)")
-                ->get();
-
-
-            $hacienda = $hacienda == 3 ? 2 : 1;
-
-            if (count($lotes) > 0) {
-                $cinta_color = DB::connection('SISBAN')->table('calendario_dole')->select('color')
-                    ->where('idcalendar', $cinta)
-                    ->first();
-
-                $series = array();
-                $cortados = array();
-                $saldos = array();
-                $labels = array();
-                $colors = array(); //#F0F043
-                foreach ($lotes as $lote):
-                    $enfunde = $this->enfundeCintaHacienda($hacienda)
-                        ->where([
-                            ['en_seccion', 'like', '%' . $lote->descripcion . '%'],
-                            'en_color' => $cinta
-                        ])
-                        ->get()->sum(function ($query) {
-                            return $query->en_cantpre + $query->en_cantfut;
-                        });
-
-                    $cortado = $this->cosechaHacienda($hacienda)->where([
-                        ['cs_seccion', 'like', '%' . $lote->descripcion . '%'],
-                        'cs_color' => $cinta
-                    ])->lock('WITH(NOLOCK)')->get()->count();
-
-                    $perdidas = $this->perdidasCinta($hacienda)
-                        ->where('pe_color', $cinta)
-                        ->where('pe_seccion', $lote->descripcion)
-                        ->get()->sum(function ($query) {
-                            return $query->pe_cant;
-                        });
-
-                    array_push($cortados, $cortado + $perdidas);
-                    array_push($series, $enfunde);
-                    array_push($saldos, ($enfunde - ($cortado + $perdidas)) >= 0 ? ($enfunde - ($cortado + $perdidas)) : 0);
-                    array_push($labels, $lote->descripcion);
-                    //array_push($colors, ["#008ffb", $this->help->getColorHexadecimal(strtolower($cinta_color->color))]);
-                    //array_push($colors, "#008ffb");
-                    $lote->enfunde = $enfunde;
-                    $lotes->cortados = 0;
-                endforeach;
-                return response()->json([
-                    'enfunde' => [
-                        'name' => 'Enfunde',
-                        'type' => 'line',
-                        'data' => $series
-                    ],
-                    'cortados' => [
-                        'name' => 'Recobro',
-                        'type' => 'column',
-                        'data' => $cortados
-                    ],
-                    'saldos' => [
-                        'name' => 'Saldo',
-                        'type' => 'column',
-                        'data' => $saldos
-                    ],
-                    'categories' => $labels,
-                    'cinta' => $colors
-                ], 200);
-            }
         } catch (\Exception $ex) {
             $this->out['message'] = $ex->getMessage();
             return response()->json($this->out, 500);

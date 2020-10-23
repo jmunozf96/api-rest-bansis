@@ -79,13 +79,19 @@ Route::get('/api/bansis-app/custom.php/bodegas/grupos/option', 'Bodega\GrupoCont
 
 Route::prefix('api/bansis-app/index.php/bodega')->group(function () {
     Route::apiResource('egresos', 'Bodega\BodEgresosController');
-    Route::prefix('search-egresos')->group(function (){
+    Route::prefix('search-egresos')->group(function () {
         Route::get('id/{idTransaccion}', 'Bodega\BodEgresosController@showById');
         Route::get('empleado/{empleado}', 'Bodega\BodEgresosController@showByEmpleado');
     });
-    Route::prefix('transferencia')->group(function (){
+    Route::prefix('transferencia')->group(function () {
         Route::get('search-saldos', 'Bodega\BodEgresosController@saldosEmpleado');
     });
+});
+
+Route::prefix('api/bansis-app/index.php/cosecha')->group(function () {
+    Route::get('primo/balanza', 'Sisban\CosechaController@executeEventBalanzaPrimo');
+    Route::post('loading/data', 'Sisban\CosechaController@loadingData');
+    Route::get('{hacienda}/cajas-dia', 'Sisban\CosechaController@getCajasDia');
 });
 
 

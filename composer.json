@@ -11,12 +11,14 @@
         "php": "^7.2",
         "ext-json": "*",
         "barryvdh/laravel-dompdf": "^0.8.6",
+        "beyondcode/laravel-websockets": "^1.9",
         "fideloper/proxy": "^4.0",
         "firebase/php-jwt": "3.0.0",
         "laravel/framework": "^6.2",
         "laravel/tinker": "^2.0",
         "laraveles/spanish": "^1.4",
         "nesbot/carbon": "^2.33",
+        "pusher/pusher-php-server": "~3.0",
         "spatie/laravel-permission": "^3.13"
     },
     "require-dev": {
@@ -24,7 +26,8 @@
         "fzaninotto/faker": "^1.4",
         "mockery/mockery": "^1.0",
         "nunomaduro/collision": "^3.0",
-        "phpunit/phpunit": "^8.0"
+        "phpunit/phpunit": "^8.0",
+        "react/dns": "^1.4.0"
     },
     "config": {
         "optimize-autoloader": true,

@@ -8,5 +8,5 @@ use Illuminate\Database\Eloquent\Model;
 class Cosecha extends BaseModel
 {
     protected $connection = "SISBAN";
-    protected $table = 'cosecha_primo';
+    protected $table = 'cosecha_primo_temp';
 }
