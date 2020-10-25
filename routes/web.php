@@ -154,7 +154,7 @@ Route::get('api/bansis-app/index.php/informe/enfunde/semanal-empleados/detalle',
 //PDF
 Route::get('api/bansis-app/index.php/informe/enfunde-pdf/semanal-empleados', 'Hacienda\EnfundeController@enfundeSemanal_PDF');
 
-//Api Cosecha
+//Api HelperCosecha
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintas-semana', 'Sisban\CosechaController@getCintasSemana');
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintaRecobro', 'Sisban\CosechaController@getCintaRecobro');
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/status', 'Sisban\CosechaController@statusCosecha');
