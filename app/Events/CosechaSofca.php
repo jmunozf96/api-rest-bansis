@@ -2,7 +2,6 @@
 
 namespace App\Events;
 
-use App\Models\Sisban\Primo\Cosecha;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
@@ -11,7 +10,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class CosechaPrimo implements ShouldBroadcast
+class CosechaSofca implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -35,6 +34,6 @@ class CosechaPrimo implements ShouldBroadcast
     public function broadcastOn()
     {
         //return new PrivateChannel('channel-name');
-        return new Channel('BalanzaPrimo');
+        return new Channel('BalanzaSofca');
     }
 }

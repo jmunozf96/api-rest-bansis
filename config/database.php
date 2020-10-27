@@ -120,7 +120,7 @@ return [
             'url' => env('DATABASE_URL'),
             'host' => env('SISBAN_HOST', 'localhost'),
             'port' => env('SISBAN_PORT', '1433'),
-            'database' => env('SISBAN_DATABASE', 'Sisban'),
+            'database' => env('SISBAN_DATABASE', 'sisban'),
             'username' => env('SISBAN_USERNAME', 'sa'),
             'password' => env('SISBAN_PASSWORD', '123456'),
             'charset' => 'utf8',
