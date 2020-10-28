@@ -179,7 +179,8 @@ class CosechaController extends Controller
                 ->where('en_color', $cinta)
                 ->groupBy('en_color')->first();
 
-            $racimos_cortados = DB::connection('SISBAN')->table('cosecha_cintas')
+            $des_tabla = $hacienda == 1 ? 'primo' : 'sofca';
+            $racimos_cortados = DB::connection('SISBAN')->table("cosecha_cintas_$des_tabla")
                 ->select(DB::raw('COUNT(cs_peso) as total'))
                 ->where('cs_color', $cinta)
                 ->where('cs_haciend', $hacienda)
@@ -241,13 +242,14 @@ class CosechaController extends Controller
                     });
 
                 //Tabla temporal
-                $cortado = DB::connection('SISBAN')->table('cosecha_cintas')->where([
+                $des_tabla = $hacienda == 1 ? 'primo' : 'sofca';
+                $cortado = DB::connection('SISBAN')->table("cosecha_cintas_$des_tabla")->where([
                     ['cs_seccion', 'like', '%' . $lote->descripcion . '%'],
                     'cs_color' => $cinta,
                     'cs_haciend' => $hacienda
                 ])->lock('WITH(NOLOCK)')->get()->count();
 
-                $cortado_antes_fecha = DB::connection('SISBAN')->table('cosecha_cintas')->where([
+                $cortado_antes_fecha = DB::connection('SISBAN')->table("cosecha_cintas_$des_tabla")->where([
                     ['cs_seccion', 'like', '%' . $lote->descripcion . '%'],
                     ['cs_fecha', '<>', $fecha],
                     'cs_color' => $cinta,
