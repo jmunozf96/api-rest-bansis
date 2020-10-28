@@ -235,7 +235,6 @@ class CosechaController extends Controller
                 //Tabla temporal
                 $cortado = DB::connection('SISBAN')->table('cosecha_cintas')->where([
                     ['cs_seccion', 'like', '%' . $lote->descripcion . '%'],
-                    ['cs_seccion', '<>', $fecha],
                     'cs_color' => $cinta,
                     'cs_haciend' => $hacienda
                 ])->lock('WITH(NOLOCK)')->get()->count();
