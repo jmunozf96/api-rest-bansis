@@ -149,7 +149,7 @@ class CosechaController extends Controller
                 DB::connection('SISBAN')->insert($insertQuery, $bindings);
 
                 $_cinta = new \stdClass();
-                $_cinta->recobro = $this->getCintaRecobro($hacienda, $data->idcalendar);
+                $_cinta->recobro = $this->getCintaRecobro($hacienda, $fecha, $data->idcalendar);
                 $_cinta->data = $this->getLotesRecobro($hacienda, $fecha, $data->idcalendar);
                 array_push($cintas_semana, $_cinta);
             }
@@ -159,7 +159,7 @@ class CosechaController extends Controller
         return $cintas_semana;
     }
 
-    public function getCintaRecobro($hacienda, $cinta)
+    public function getCintaRecobro($hacienda, $fecha, $cinta)
     {
         $recobro = array();
 
@@ -173,6 +173,7 @@ class CosechaController extends Controller
                 ->select(DB::raw('COUNT(cs_peso) as total'))
                 ->where('cs_color', $cinta)
                 ->where('cs_haciend', $hacienda)
+                ->where('cs_fecha', '<>', $fecha)
                 ->lock('WITH(NOLOCK)')
                 ->first();
 
