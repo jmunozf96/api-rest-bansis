@@ -150,7 +150,8 @@ class CosechaController extends Controller
                     ])->lock('WITH(NOLOCK)');
 
                 $bindings = $data_cinta->getBindings();
-                $insertQuery = 'INSERT into cosecha_cintas ' . $data_cinta->toSql();
+                $des_tabla = $hacienda == 1 ? 'primo' : 'sofca';
+                $insertQuery = "INSERT into cosecha_cintas_$des_tabla " . $data_cinta->toSql();
                 DB::connection('SISBAN')->insert($insertQuery, $bindings);
 
                 $_cinta = new \stdClass();
