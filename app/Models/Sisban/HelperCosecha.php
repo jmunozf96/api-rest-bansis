@@ -66,7 +66,7 @@ class HelperCosecha
 
     public static function tabla_temporal_data_cintas_drop_sofca()
     {
-        $sql = "IF OBJECT_ID('dbo.cosecha_cintas_sofca', 'U') IS NOT NULL DROP TABLE dbo.cosecha_cintas";
+        $sql = "IF OBJECT_ID('dbo.cosecha_cintas_sofca', 'U') IS NOT NULL DROP TABLE dbo.cosecha_cintas_sofca";
         DB::connection('SISBAN')->unprepared(DB::raw($sql));
         //DB::connection('SISBAN')->unprepared(DB::raw("DROP TABLE IF EXISTS cosecha_cintas"));
     }
