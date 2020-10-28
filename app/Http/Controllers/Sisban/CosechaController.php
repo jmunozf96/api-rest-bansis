@@ -239,7 +239,7 @@ class CosechaController extends Controller
 
                 $cortado_antes_fecha = DB::connection('SISBAN')->table('cosecha_cintas')->where([
                     ['cs_seccion', 'like', '%' . $lote->descripcion . '%'],
-                    ['cs_seccion', '<>', $fecha],
+                    ['cs_fecha', '<>', $fecha],
                     'cs_color' => $cinta,
                     'cs_haciend' => $hacienda
                 ])->lock('WITH(NOLOCK)')->get()->count();
