@@ -12,7 +12,7 @@ class HelperCosecha
     public static function tabla_temporal_data_cintas($hacienda)
     {
         $hacienda = $hacienda == 1 ? 'primo' : 'sofca';
-        $sql = "create table cosecha_cintas_$hacienda
+        $sql = "create table cosecha_cintas_".$hacienda."
                     (
                         [cs_id] [numeric](5, 0) identity not null PRIMARY KEY,
                         [cs_haciend] [numeric](2, 0) NOT NULL,
@@ -37,7 +37,7 @@ class HelperCosecha
     public static function tabla_temporal_data_cintas_drop($hacienda)
     {
         $hacienda = $hacienda == 1 ? 'primo' : 'sofca';
-        $sql = "IF OBJECT_ID('dbo.cosecha_cintas_$hacienda', 'U') IS NOT NULL DROP TABLE dbo.cosecha_cintas_$hacienda";
+        $sql = "IF OBJECT_ID('dbo.cosecha_cintas_".$hacienda."', 'U') IS NOT NULL DROP TABLE dbo.cosecha_cintas_".$hacienda;
         DB::connection('SISBAN')->unprepared(DB::raw($sql));
         //DB::connection('SISBAN')->unprepared(DB::raw("DROP TABLE IF EXISTS cosecha_cintas"));
     }
