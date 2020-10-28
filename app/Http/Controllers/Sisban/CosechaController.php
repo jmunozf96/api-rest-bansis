@@ -125,8 +125,8 @@ class CosechaController extends Controller
 
         if (!empty($fecha)) {
             //Creamos datos temporales
-            HelperCosecha::tabla_temporal_data_cintas_drop();
-            HelperCosecha::tabla_temporal_data_cintas();
+            HelperCosecha::tabla_temporal_data_cintas_drop($hacienda);
+            HelperCosecha::tabla_temporal_data_cintas($hacienda);
 
             foreach ($cintas as $cinta) {
                 $dias = (($cinta['value'] - 1) * 7);
@@ -154,7 +154,7 @@ class CosechaController extends Controller
                 array_push($cintas_semana, $_cinta);
             }
 
-            HelperCosecha::tabla_temporal_data_cintas_drop();
+            HelperCosecha::tabla_temporal_data_cintas_drop($hacienda);
         }
         return $cintas_semana;
     }
