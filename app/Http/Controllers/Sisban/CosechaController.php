@@ -201,8 +201,6 @@ class CosechaController extends Controller
     public function getLotesRecobro($hacienda, $fecha, $cinta)
     {
         $hacienda_web = $hacienda === 2 ? 3 : 1;
-        $fecha = strtotime(str_replace('/', '-', $fecha));
-        $fecha = date(config('constants.date'), $fecha);
 
         $lotes = LoteSeccion::join('HAC_LOTES as lote', 'lote.id', 'HAC_LOTES_SECCION.idlote')
             ->select('HAC_LOTES_SECCION.id', 'HAC_LOTES_SECCION.has', 'HAC_LOTES_SECCION.variedad',
