@@ -159,10 +159,10 @@ class UserController extends Controller
 
                 if (!empty($params->getToken)) {
                     $signup = $credentials;
+                } else {
+                    Mail::to($credentials['credential']->correo)
+                        ->send(new ConfirmacionAcceso($credentials['credential']));
                 }
-
-                Mail::to($credentials['credential']->correo)
-                    ->send(new ConfirmacionAcceso($credentials['credential']));
 
                 return response()->json($signup, 200);
             }
