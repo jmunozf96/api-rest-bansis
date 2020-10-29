@@ -332,7 +332,6 @@ class CosechaController extends Controller
             if (count($data) > 0) {
                 $cajas = array_column($data, 'idcaja');
                 $cajas_only = array_unique($cajas);
-
                 if (count($cajas) > count($cajas_only)) {
                     //Hay cajas repetidas
                     foreach ($cajas_only as $item) {
@@ -343,10 +342,6 @@ class CosechaController extends Controller
                         $data_nw = array_filter($data, function ($data) use ($item) {
                             return $data['idcaja'] == $item;
                         });
-
-                        $last_pesada = array_reduce($data_nw, function ($A, $B) {
-                            return $A['last'] > $B['last'] ? $A : $B;
-                        }, array_shift($data_nw));
 
                         $total_pesadas = array_reduce($data_nw, function ($total, $item) {
                             $total += $item['totalpesadas'];
@@ -363,6 +358,10 @@ class CosechaController extends Controller
                             return $total;
                         }, 0);
 
+                        $last_pesada = array_reduce($data_nw, function ($A, $B) {
+                            return $A['last'] > $B['last'] ? $A : $B;
+                        }, array_shift($data_nw));
+
                         $caja = new \stdClass();
                         $caja->idcaja = $item;
                         $caja->totalpesadas = $total_pesadas;
@@ -371,7 +370,7 @@ class CosechaController extends Controller
                         $caja->datos = [
                             'id' => $datos_Caja->id_cj,
                             'codigo' => $datos_Caja->cod_cj,
-                            'descripcion' => $datos_Caja->des_cj
+                            'descripcion' => $datos_Caja->des_cj,
                         ];
                         $caja->last = $last_pesada['last'];
 

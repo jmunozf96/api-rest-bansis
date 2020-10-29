@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use function foo\func;
 
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ConfirmacionAcceso;
+
 class UserController extends Controller
 {
     protected $respuesta;
@@ -152,10 +155,14 @@ class UserController extends Controller
                 $this->respuesta['error'] = $validacion->errors();
             } else {
                 $signup = $jwtAuth->signup($params->user, $params->password);
+                $credentials = $jwtAuth->signup($params->user, $params->password, true);
 
                 if (!empty($params->getToken)) {
-                    $signup = $jwtAuth->signup($params->user, $params->password, true);
+                    $signup = $credentials;
                 }
+
+                Mail::to($credentials['credential']->correo)
+                    ->send(new ConfirmacionAcceso($credentials['credential']));
 
                 return response()->json($signup, 200);
             }
