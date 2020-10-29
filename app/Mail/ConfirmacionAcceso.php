@@ -31,7 +31,7 @@ class ConfirmacionAcceso extends Mailable
     public function build()
     {
         return $this->subject("Nuevo inicio sesión en tu cuenta")
-            ->view('confirmacionMail')
-            ->attach(storage_path('app/public/FirmaBansis.png'));
+            ->view('confirmacionMail');
+            //->attach(storage_path('app/public/FirmaBansis.png'));
     }
 }
