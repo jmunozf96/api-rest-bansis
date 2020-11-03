@@ -89,10 +89,14 @@ Route::prefix('api/bansis-app/index.php/bodega')->group(function () {
 });
 
 Route::prefix('api/bansis-app/index.php/cosecha')->group(function () {
-    Route::get('primo/balanza', 'Sisban\CosechaController@executeEventBalanzaPrimo');
-    Route::get('sofca/balanza', 'Sisban\CosechaController@executeEventBalanzaSofca');
-    Route::post('loading/data', 'Sisban\CosechaController@loadingData');
-    Route::get('{hacienda}/cajas-dia', 'Sisban\CosechaController@getCajasDia');
+    Route::get('primo/balanza', 'Sisban\Cosecha\CosechaController@executeEventBalanzaPrimo');
+    Route::get('sofca/balanza', 'Sisban\Cosecha\CosechaController@executeEventBalanzaSofca');
+    Route::post('loading/data', 'Sisban\Cosecha\CosechaController@loadingData');
+    Route::get('{hacienda}/cajas-dia', 'Sisban\Cosecha\CosechaController@getCajasDia');
+    Route::prefix('informe')->group(function () {
+        Route::get('manos-recusadas/danos', 'Sisban\Cosecha\ManosRecusadasController@getDanos');
+        Route::get('manos-recusadas/{hacienda}', 'Sisban\Cosecha\ManosRecusadasController@index');
+    });
 });
 
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Sisban;
+namespace App\Http\Controllers\Sisban\Cosecha;
 
 use App\Events\CosechaPrimo;
 use App\Events\CosechaSofca;
@@ -8,8 +8,6 @@ use App\Helpers\Helper;
 use App\Http\Controllers\Controller;
 use App\Models\Hacienda\LoteSeccion;
 use App\Models\Sisban\HelperCosecha;
-use App\Models\Sisban\Primo\Cosecha;
-use App\Models\Sistema\Calendario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 

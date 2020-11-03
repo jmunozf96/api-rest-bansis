@@ -247,6 +247,7 @@ class UserController extends Controller
                     $salida['status'] = true;
                     return response()->json($salida, 200);
                 } else {
+                    $salida['recursos'] = $this->servicios->getRecursosUser($params->idempleado);
                     throw new \Exception('No puede acceder a este modulo.');
                 }
             }

@@ -1,4 +1,4 @@
-<h1>Sistema Bakcend Bananera</h1>
+<h1>Sistema Backend Bananera</h1>
 
 ## Sobre el sistema:
 
