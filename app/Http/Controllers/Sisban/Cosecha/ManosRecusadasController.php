@@ -23,13 +23,18 @@ class ManosRecusadasController extends Controller
     public function index(Request $request, $hacienda)
     {
         try {
-            $fecha = $request->get('fecha');
-            $fecha = strtotime(str_replace('/', '-', $fecha));
-            if ($fecha) {
-                $fecha = date(config('constants.date'), $fecha);
+            $desde = $request->get('desde');
+            $hasta = $request->get('hasta');
+            $desde = strtotime(str_replace('/', '-', $desde));
+            $hasta = strtotime(str_replace('/', '-', $hasta));
+
+            if ($desde && $hasta) {
+                $desde = date(config('constants.date'), $desde);
+                $hasta = date(config('constants.date'), $hasta);
             } else {
                 //Fecha actual
-                $fecha = date(config('constants.format_date'));
+                $desde = date(config('constants.format_date'));
+                $hasta = date(config('constants.format_date'));
             }
 
             $lotes = LoteSeccion::select('id', DB::raw("right('000' + ltrim(alias), 3) as alias"),
@@ -43,29 +48,23 @@ class ManosRecusadasController extends Controller
 
                     }]);
                 }])
-                ->whereHas('manosRecusadas', function ($query) use ($fecha) {
+                ->whereHas('manosRecusadas', function ($query) use ($desde, $hasta) {
                     $query->where('mano', true);
-                    $query->whereHas('calendario', function ($query) use ($fecha) {
-                        $query->where('fecha', $fecha);
+                    $query->whereHas('calendario', function ($query) use ($desde, $hasta) {
+                        $query->whereBetween('fecha', [$desde, $hasta]);
                     });
                 })
-                ->with(['manosRecusadas' => function ($query) use ($fecha) {
-                    $query->select('idhacienda', 'fecha', 'idlote', 'dano_des',
+                ->with(['manosRecusadas' => function ($query) use ($desde, $hasta) {
+                    $query->select('idhacienda', 'idlote', 'dano_des',
                         DB::raw("sum(cantidad) as cantidad"),
                         'otros', 'otros_des');
-                    $query->groupBy('idhacienda', 'fecha', 'idlote', 'dano_des', 'otros', 'otros_des');
+                    $query->groupBy('idhacienda', 'idlote', 'dano_des', 'otros', 'otros_des');
                     $query->where('mano', true);
-                    $query->pluck('cantidad', 'idhacienda', 'fecha', 'idlote', 'dano_des', 'otros', 'otros_des');
+                    $query->pluck('cantidad', 'idhacienda', 'idlote', 'dano_des', 'otros', 'otros_des');
                     $query->with(['dano' => function ($query) {
                         $query->select('id', 'nombre', 'detalle');
                     }]);
-                    $query->whereHas('calendario', function ($query) use ($fecha) {
-                        $query->where('fecha', $fecha);
-                    });
-                    $query->with(['calendario' => function ($query) use ($fecha) {
-                        $query->select('codigo', 'semana', 'periodo', 'color', 'fecha');
-                        $query->where('fecha', $fecha);
-                    }]);
+                    $query->whereBetween('fecha', [$desde, $hasta]);
                 }])
                 ->get();
             if (count($lotes) > 0) {
@@ -83,19 +82,26 @@ class ManosRecusadasController extends Controller
         return response()->json($this->out, $this->out['code']);
     }
 
-    public function getDanos(Request $request)
+    public function getDanos(Request $request, $hacienda)
     {
         try {
-            $fecha = $request->get('fecha');
-            $fecha = strtotime(str_replace('/', '-', $fecha));
-            if ($fecha) {
-                $fecha = date(config('constants.date'), $fecha);
+            $desde = $request->get('desde');
+            $hasta = $request->get('hasta');
+            $desde = strtotime(str_replace('/', '-', $desde));
+            $hasta = strtotime(str_replace('/', '-', $hasta));
+
+            if ($desde && $hasta) {
+                $desde = date(config('constants.date'), $desde);
+                $hasta = date(config('constants.date'), $hasta);
             } else {
                 //Fecha actual
-                $fecha = date(config('constants.format_date'));
+                $desde = date(config('constants.format_date'));
+                $hasta = date(config('constants.format_date'));
             }
 
-            $danos_fecha = ManosRecusadas::select('dano_des')->where('fecha', $fecha)
+            $danos_fecha = ManosRecusadas::select('dano_des')
+                ->whereBetween('fecha', [$desde, $hasta])
+                ->where(['idhacienda' => $hacienda])
                 ->with('dano')
                 ->groupBy('dano_des')
                 ->get()
@@ -106,9 +112,11 @@ class ManosRecusadasController extends Controller
             foreach ($danos as $dano) {
                 $data = clone $dano;
                 $data->selected = false;
+                $data->disabled = true;
                 foreach ($danos_fecha as $dano_fecha) {
                     if ($data->id == $dano_fecha) {
                         $data->selected = true;
+                        $data->disabled = false;
                         break;
                     }
                 }
