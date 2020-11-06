@@ -94,7 +94,7 @@ Route::prefix('api/bansis-app/index.php/cosecha')->group(function () {
     Route::post('loading/data', 'Sisban\Cosecha\CosechaController@loadingData');
     Route::get('{hacienda}/cajas-dia', 'Sisban\Cosecha\CosechaController@getCajasDia');
     Route::prefix('informe')->group(function () {
-        Route::get('manos-recusadas/danos', 'Sisban\Cosecha\ManosRecusadasController@getDanos');
+        Route::get('manos-recusadas/{hacienda}/danos', 'Sisban\Cosecha\ManosRecusadasController@getDanos');
         Route::get('manos-recusadas/{hacienda}', 'Sisban\Cosecha\ManosRecusadasController@index');
     });
 });
