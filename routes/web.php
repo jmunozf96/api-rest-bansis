@@ -89,8 +89,6 @@ Route::prefix('api/bansis-app/index.php/bodega')->group(function () {
 });
 
 Route::prefix('api/bansis-app/index.php/cosecha')->group(function () {
-    Route::get('primo/balanza', 'Sisban\Cosecha\CosechaController@executeEventBalanzaPrimo');
-    Route::get('sofca/balanza', 'Sisban\Cosecha\CosechaController@executeEventBalanzaSofca');
     Route::post('loading/data', 'Sisban\Cosecha\CosechaController@loadingData');
     Route::get('{hacienda}/cajas-dia', 'Sisban\Cosecha\CosechaController@getCajasDia');
     Route::prefix('informe')->group(function () {
