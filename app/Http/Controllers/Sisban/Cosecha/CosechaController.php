@@ -21,7 +21,7 @@ class CosechaController extends Controller
     public function __construct()
     {
         $this->middleware('api.auth', ['except' => ['index', 'show',
-            'statusCosecha', 'getCosecha', 'executeEventBalanzaPrimo', 'executeEventBalanzaSofca',
+            'statusCosecha', 'getCosecha',
             'getCintasSemana', 'getCosechaLote', 'getLotesCortadosDia',
             'getCajasDia', 'getLotesRecobro', 'getCintaRecobro']]);
         $this->out = $this->respuesta_json('error', 400, 'Detalle mensaje de respuesta');
@@ -34,30 +34,6 @@ class CosechaController extends Controller
     public function index()
     {
         //
-    }
-
-    public function executeEventBalanzaPrimo()
-    {
-        $cosecha = DB::connection('SISBAN')->table('cosecha_primo_temp')
-            ->orderBy('cs_id', 'desc')
-            ->take(1)
-            ->lock('WITH(NOLOCK)')
-            ->first();
-
-        //Luego la aliminas
-        event(new CosechaPrimo($cosecha));
-    }
-
-    public function executeEventBalanzaSofca()
-    {
-        $cosecha = DB::connection('SISBAN')->table('cosecha_sofca_temp')
-            ->orderBy('cs_id', 'desc')
-            ->take(1)
-            ->lock('WITH(NOLOCK)')
-            ->first();
-
-        //Luego la aliminas
-        event(new CosechaSofca($cosecha));
     }
 
     public function cosechaHacienda($hacienda)
