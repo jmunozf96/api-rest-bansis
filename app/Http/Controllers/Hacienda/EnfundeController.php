@@ -1291,7 +1291,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($hacienda) && !is_null($hacienda)) {
+            if (!empty($hacienda)) {
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
                         'seccion.id',
@@ -1590,7 +1590,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($hacienda) && !is_null($hacienda)) {
+            if (!empty($hacienda)) {
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select('seccion.id', DB::raw("RIGHT('000' + LTRIM(seccion.alias), 3) as alias"),
                         'seccion.has', DB::raw("sum(detalle.cant_pre + detalle.cant_fut) as total"),
@@ -1653,7 +1653,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($idseccion) && !is_null($idseccion)) {
+            if (!empty($idseccion)) {
                 $dataSeccion = LoteSeccion::select(
                     'id', DB::raw("RIGHT('000' + LTRIM(alias),3) AS alias"),
                     'has', 'variedad', 'tipo_suelo'
@@ -1717,7 +1717,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($idLote) && !is_null($idLote)):
+            if (!empty($idLote)):
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
                         'empleado.id', 'empleado.nombres',
@@ -1774,7 +1774,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($idLotero) && !is_null($idLotero)):
+            if (!empty($idLotero)):
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
                         'seccion.id', 'seccion.alias',
