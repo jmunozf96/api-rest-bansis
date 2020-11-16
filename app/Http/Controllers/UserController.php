@@ -231,7 +231,7 @@ class UserController extends Controller
             $json = $request->input('json');
             $params = json_decode($json);
 
-            if (is_object($params) && !empty($params) && isset($params->modulo) && isset($params->rutaPadre)) {
+            if (is_object($params) && isset($params->modulo) && isset($params->rutaPadre)) {
                 $perfil = Perfil::where([
                     'iduser' => $params->idempleado,
                     'idrecurso' => $params->modulo

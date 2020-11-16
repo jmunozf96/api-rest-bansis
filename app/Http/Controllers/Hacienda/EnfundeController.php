@@ -1179,6 +1179,7 @@ class EnfundeController extends Controller
         //return view('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
     }
 
+
     public function dashboardEnfundePeriodo(Request $request)
     {
         try {
@@ -1211,70 +1212,31 @@ class EnfundeController extends Controller
             $sql = $sql->get();
 
             $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
+
             //Chart bar
-            $values_primo = [];
-            $values_sofca = [];
+            $values_hacienda = [];
             $options = [];
 
-            $haciendas = array();
+            $haciendas = Hacienda::getHaciendas();
             if (count($sql->all()) > 0) {
-                foreach ($sql->all() as $value) {
-                    $total_enfunde = 0;
-                    if ($value->idhacienda == 1) {
-                        /*Empieza desde la semana 29 periodo 8, ya que el periodo 7 Sofca empezo una semana despues,
-                        entonces hay que consolidar con el enfunde del sisban*/
-                        if ($value->periodo >= 1 and $value->periodo <= 7) {
-                            $total_enfunde =
-                                +$this->enfundeTotalHaciendaSisban(1, 2020, true, false, $value->periodo, $value->periodo)
-                                    ->first()->total;
-                        } else {
-                            $total_enfunde = +$value->total;
-                        }
-
-                        array_push($values_primo, number_format($total_enfunde, 0, ',', '.'));
-                        array_push($options, $value->per_chart);
-                    }
-
-                    if ($value->idhacienda == 3) {
-                        if ($value->periodo >= 1 and $value->periodo <= 7) {
-                            $total_enfunde = +$this->enfundeTotalHaciendaSisban(3, 2020, true, false, $value->periodo, $value->periodo)
-                                ->first()->total;
-                        } else {
-                            $total_enfunde = +$value->total;
-                        }
-                        array_push($values_sofca, number_format($total_enfunde, 0, ',', '.'));
-                    }
-
-                    if (count($haciendas) == 0) {
-                        array_push($haciendas, ['id' => $value->idhacienda, 'detalle' => $value->detalle]);
-                    } else {
-                        $existe = false;
-                        foreach ($haciendas as $hacienda) {
-                            if ($hacienda['id'] == $value->idhacienda && $existe == false) {
-                                $existe = true;
-                                break;
-                            }
-                        }
-                        if (!$existe) {
-                            array_push($haciendas, ['id' => $value->idhacienda, 'detalle' => $value->detalle]);
+                $categories = true;
+                foreach ($haciendas as $hacienda) {
+                    $values = [];
+                    foreach ($sql->all() as $value) {
+                        if ($value->idhacienda == $hacienda->id) {
+                            array_push($values, +$value->total);
+                            if ($categories)
+                                //Las opciones [categories] solo se ponen una vez
+                                array_push($options, $value->per_chart);
                         }
                     }
-
+                    $categories = false;
+                    array_push($values_hacienda, ['name' => $hacienda->detalle, 'data' => $values]);
                 }
             }
 
-            $this->out['dataChartBarPrimo'] = null;
-            $this->out['dataChartBarSofca'] = null;
-
-            foreach ($haciendas as $hacienda) {
-                if ($hacienda['id'] == 1) {
-                    $this->out['dataChartBarPrimo'] = ['name' => $hacienda['detalle'], 'data' => $values_primo];
-                } else {
-                    $this->out['dataChartBarSofca'] = ['name' => $hacienda['detalle'], 'data' => $values_sofca,];
-                }
-            }
-
-            $this->out['dataOptions'] = $options;
+            $this->out['categories'] = $options;
+            $this->out['data'] = $values_hacienda;
 
             return response()->json($this->out, 200);
         } catch (\Exception $ex) {
@@ -1291,7 +1253,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($hacienda) && !is_null($hacienda)) {
+            if ($hacienda !== null) {
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
                         'seccion.id',
@@ -1347,7 +1309,7 @@ class EnfundeController extends Controller
             throw new \Exception("No se ha recibido el codigo de la hacienda");
         } catch (\Exception $ex) {
             $this->out = $this->respuesta_json('error', 500, 'Error en la solicitud!!!');
-            $this['errors'] = $ex->getMessage();
+            $this->out['errors'] = $ex->getMessage();
             return response()->json($this->out, 500);
         }
     }
@@ -1434,6 +1396,7 @@ class EnfundeController extends Controller
 
             $idhacienda = $request->get('idhacienda');
             $periodo = $request->get('periodo');
+
             $sql = DB::table('HAC_ENFUNDES AS enfunde')
                 ->select('idhacienda', 'hacienda.detalle',
                     DB::raw("sum(detalle.cant_pre + detalle.cant_fut) enfunde"))
@@ -1458,14 +1421,6 @@ class EnfundeController extends Controller
             if ($sql->count() > 0) {
                 foreach ($sql->all() as $item) {
                     array_push($id, $item->idhacienda);
-                    //Año 2020 empieza desde semana 25 primo y 26 sofca
-                    if ($item->idhacienda == 1) {
-                        $item->enfunde += $this->enfundeTotalHaciendaSisban(1, 2020, true, true, 1, 7, 1, 24)
-                            ->first()->total;
-                    } else {
-                        $item->enfunde += $this->enfundeTotalHaciendaSisban(1, 2020, true, true, 1, 7, 1, 25)
-                            ->first()->total;
-                    }
                     array_push($values, intval($item->enfunde));
                     array_push($options, $item->detalle);
                 }
@@ -1488,90 +1443,61 @@ class EnfundeController extends Controller
     {
         try {
             $idhacienda = $request->get('idhacienda');
-
-            $values_primo = [
-                //Total trae un objeto, semanal o periodal un array de objetos
-                number_format($this->enfundeTotalHaciendaSisban(1, 2018, true, true, 1, 13, 1, 52)->first()->total, 0, ',', '.'),
-                number_format($this->enfundeTotalHaciendaSisban(1, 2019, true, true, 1, 13, 1, 52)->first()->total, 0, ',', '.')
-            ];
-
-
-            $values_sofca = [
-                number_format($this->enfundeTotalHaciendaSisban(3, 2018, true, true, 1, 13, 1, 52)->first()->total, 0, ',', '.'),
-                number_format($this->enfundeTotalHaciendaSisban(3, 2019, true, true, 1, 13, 1, 52)->first()->total, 0, ',', '.')
-            ];
-
             $options = ['2018', '2019', '2020'];
 
             $sql = DB::table('HAC_ENFUNDES AS enfunde')
                 ->select(
-                    'hacienda.id', 'hacienda.detalle',
+                    'hacienda.id', 'hacienda.detalle', DB::raw('SUBSTRING(convert(varchar, calendario.codigo), 1, 3) + 1800 as year'),
                     DB::raw("sum(detalle.cant_pre + detalle.cant_fut) total"))
                 ->join('HAC_DET_ENFUNDES AS detalle', 'detalle.idenfunde', 'enfunde.id')
                 ->join('HACIENDAS AS hacienda', function ($query) {
                     $query->on('hacienda.id', 'enfunde.idhacienda');
                 })
                 ->join('SIS_CALENDARIO_DOLE AS calendario', function ($query) {
+                    $inicio_fin_year = $this->codigoCalendarioAnual(2020);
                     $query->on('calendario.fecha', 'enfunde.fecha')
-                        ->whereBetween('calendario.codigo', [22026, 22053])
-                        ->whereBetween('calendario.periodo', [1, 13]);
+                        ->whereBetween('calendario.codigo', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
                 })
-                ->groupBy('hacienda.id', 'hacienda.detalle');
+                ->groupBy('hacienda.id', 'hacienda.detalle', DB::raw("SUBSTRING(convert(varchar, calendario.codigo), 1, 3) + 1800"));
 
             if (!empty($idhacienda) && $idhacienda !== "null") {
                 $sql = $sql->where('hacienda.id', $idhacienda);
             }
 
             $sql = $sql->get();
+            //Se sabe que en el sisban solo hay datos de la hacienda Primo y Sofca (codigos 1 y 3), las demas haciendas que se agreguen, trabajan con datos del Bansis.
 
-            $haciendas = array();
+            $values = [];
             foreach ($sql as $item):
-                if ($item->id == 1) {
-                    //Traer los datos de la semana 26, ya que este sistema empezo a capturar datos de primo en la 25 y sofca en la 26,
-                    //asi que se toman los datos desde la semana 26 y se le añaden las semanas anteriores.
-                    $migracion = $this->enfundeTotalHaciendaSisban(1, 2020, true, true, 1, 13, 1, 25)
-                        ->first()->total;
-                    array_push($values_primo, number_format($item->total + $migracion, 0, ',', '.'));
-                } else {
-                    $migracion = $this->enfundeTotalHaciendaSisban(3, 2020, true, true, 1, 13, 1, 25)
-                        ->first()->total;
-                    array_push($values_sofca, number_format($item->total + $migracion, 0, ',', '.'));
-                }
-
-                if (count($haciendas) == 0) {
-                    array_push($haciendas, ['id' => $item->id, 'detalle' => $item->detalle]);
-                } else {
-                    $existe = false;
-                    foreach ($haciendas as $hacienda) {
-                        if ($hacienda['id'] == $item->id && $existe == false) {
-                            $existe = true;
-                            break;
-                        }
+                $years = [];
+                foreach ($options as $option) {
+                    $total = 0;
+                    if ($option == '2018' && ($item->id == 1 || $item->id == 3)) {
+                        $total = $this->enfundeTotalHaciendaSisban($item->id, 2018, true, true, 1, 13, 1, 52)->first()->total;
+                    } else if ($option == '2019' && ($item->id == 1 || $item->id == 3)) {
+                        $total = $this->enfundeTotalHaciendaSisban($item->id, 2019, true, true, 1, 13, 1, 52)->first()->total;
+                    } else if ($option == '2020' && ($item->id == 1 || $item->id == 3)) {
+                        //Traer los datos de la semana 26, ya que este sistema empezo a capturar datos de primo en la 25 y sofca en la 26,
+                        //asi que se toman los datos desde la semana 26 y se le añaden las semanas anteriores.
+                        $total = $this->enfundeTotalHaciendaSisban($item->id, 2020, true, true, 1, 13, 1, 25)->first()->total;
+                        $total += $item->total;
+                    } else if ($option == $item->year) {
+                        $total = $item->total;
                     }
-                    if (!$existe) {
-                        array_push($haciendas, ['id' => $item->id, 'detalle' => $item->detalle]);
-                    }
+                    array_push($years, intval($total));
                 }
-
+                array_push($values, [
+                    'name' => $item->detalle,
+                    'data' => $years
+                ]);
             endforeach;
 
-
+            /*array_push($this->out['series'], [
+                'name' => $hacienda['detalle'],
+                'data' => $values_primo
+            ]);*/
             $this->out = $this->respuesta_json('success', 200, 'Consulta ejecutada');
-            $this->out['series'] = array();
-
-            foreach ($haciendas as $hacienda) {
-                if ($hacienda['id'] == 1) {
-                    array_push($this->out['series'], [
-                        'name' => $hacienda['detalle'],
-                        'data' => $values_primo
-                    ]);
-                } else {
-                    array_push($this->out['series'], [
-                        'name' => $hacienda['detalle'],
-                        'data' => $values_sofca
-                    ]);
-                }
-            }
+            $this->out['series'] = $values;
 
             $this->out['categories'] = $options;
 
@@ -1590,7 +1516,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($hacienda) && !is_null($hacienda)) {
+            if (!empty($hacienda)) {
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select('seccion.id', DB::raw("RIGHT('000' + LTRIM(seccion.alias), 3) as alias"),
                         'seccion.has', DB::raw("sum(detalle.cant_pre + detalle.cant_fut) as total"),
@@ -1653,7 +1579,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($idseccion) && !is_null($idseccion)) {
+            if (!empty($idseccion)) {
                 $dataSeccion = LoteSeccion::select(
                     'id', DB::raw("RIGHT('000' + LTRIM(alias),3) AS alias"),
                     'has', 'variedad', 'tipo_suelo'
@@ -1717,7 +1643,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($idLote) && !is_null($idLote)):
+            if (!empty($idLote)):
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
                         'empleado.id', 'empleado.nombres',
@@ -1774,7 +1700,7 @@ class EnfundeController extends Controller
             $periodo = $request->get('periodo');
             $semana = $request->get('semana');
 
-            if (!empty($idLotero) && !is_null($idLotero)):
+            if (!empty($idLotero)):
                 $sql = DB::table('HAC_ENFUNDES AS enfunde')
                     ->select(
                         'seccion.id', 'seccion.alias',
@@ -1824,33 +1750,36 @@ class EnfundeController extends Controller
 
     public function enfundeTotalHaciendaSisban($hacienda, $year, $periodal = false, $semanal = false, ...$data)
     {
-        $tabla = $hacienda == 1 ? 'dbo.enfunde_primo' : 'dbo.enfunde_sofca';
-        $sql = DB::connection('SISBAN')->table("$tabla AS enfunde")
-            ->join('SISBAN.dbo.calendario_dole AS calendario', function ($sql) use ($year, $data, $semanal, $periodal) {
-                $inicio_fin_year = $this->codigoCalendarioAnual($year);
+        if ($hacienda == 1 || $hacienda == 3) {
+            $tabla = $hacienda == 1 ? 'dbo.enfunde_primo' : 'dbo.enfunde_sofca';
+            $sql = DB::connection('SISBAN')->table("$tabla AS enfunde")
+                ->join('SISBAN.dbo.calendario_dole AS calendario', function ($sql) use ($year, $data, $semanal, $periodal) {
+                    $inicio_fin_year = $this->codigoCalendarioAnual($year);
 
-                $sql->on('calendario.fecha', '=', 'enfunde.en_fecha')
-                    ->whereBetween('calendario.idcalendar', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
+                    $sql->on('calendario.fecha', '=', 'enfunde.en_fecha')
+                        ->whereBetween('calendario.idcalendar', [$inicio_fin_year->inicio, $inicio_fin_year->fin]);
 
-                $indice = [0, 1];
-                if (count($data) > 0) {
+                    $indice = [0, 1];
+                    if (count($data) > 0) {
 
-                    if ($periodal) {
-                        $sql->whereBetween('calendario.periodo', [$data[$indice[0]], $data[$indice[1]]]);
+                        if ($periodal) {
+                            $sql->whereBetween('calendario.periodo', [$data[$indice[0]], $data[$indice[1]]]);
+                            if ($semanal) {
+                                $indice[0] = 2;
+                                $indice[1] = 3;
+                            }
+                        }
+
                         if ($semanal) {
-                            $indice[0] = 2;
-                            $indice[1] = 3;
+                            $sql->whereBetween('calendario.semana', [$data[$indice[0]], $data[$indice[1]]]);
                         }
                     }
+                });
+            $sql->select(DB::raw("SUM(enfunde.en_cantpre + enfunde.en_cantfut) AS total"));
 
-                    if ($semanal) {
-                        $sql->whereBetween('calendario.semana', [$data[$indice[0]], $data[$indice[1]]]);
-                    }
-                }
-            });
-        $sql->select(DB::raw("SUM(enfunde.en_cantpre + enfunde.en_cantfut) AS total"));
-
-        return $sql;
+            return $sql;
+        }
+        return false;
     }
 
     public function codigoCalendarioAnual($year)
