@@ -128,6 +128,21 @@ return [
             'prefix_indexes' => true,
         ],
 
+        'sbn_pgsql' => [
+            'driver' => 'pgsql',
+            'url' => env('DATABASE_URL'),
+            'host' => env('SBN_HOST', '192.168.191.1'),
+            'port' => env('SBN_PORT', '5432'),
+            'database' => env('SBN_DATABASE', 'Clima'),
+            'username' => env('SBN_USERNAME', 'postgres'),
+            'password' => env('SBN_PASSWORD', '12345'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'schema' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
     ],
 
     /*

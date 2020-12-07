@@ -11,7 +11,8 @@ use App\Models\Sisban\HelperCosecha;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class CosechaController extends Controller
+class
+CosechaController extends Controller
 {
     protected $out;
     protected $api_balanza;

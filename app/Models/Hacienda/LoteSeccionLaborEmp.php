@@ -11,16 +11,16 @@ class LoteSeccionLaborEmp extends BaseModel
 
     public function labor()
     {
-        return $this->hasOne('App\Models\Hacienda\Labor', 'id', 'idlabor');
+        return $this->hasOne(Labor::class, 'id', 'idlabor');
     }
 
     public function empleado()
     {
-        return $this->hasOne('App\Models\Hacienda\Empleado', 'id', 'idempleado');
+        return $this->hasOne(Empleado::class, 'id', 'idempleado');
     }
 
     public function detalleSeccionLabor()
     {
-        return $this->hasMany('App\Models\Hacienda\LoteSeccionLaborEmpDet', 'idcabecera', 'id');
+        return $this->hasMany(LoteSeccionLaborEmpDet::class, 'idcabecera', 'id');
     }
 }

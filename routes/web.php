@@ -1,6 +1,7 @@
 <?php
 
 use \Illuminate\Support\Facades\Route;
+use \App\Http\Controllers\Sisban\Clima;
 
 header('Access-Control-Allow-Origin: *');
 header("Access-Control-Allow-Headers: X-API-KEY, Origin, X-Requested-With, Content-Type, Accept, Access-Control-Request-Method");
@@ -97,6 +98,12 @@ Route::prefix('api/bansis-app/index.php/cosecha')->group(function () {
     });
 });
 
+Route::prefix('api/bansis-app/android')->group(function () {
+    Route::prefix('/meteorologia')->group(function () {
+        Route::post('/all', [Clima\MeteorologiaController::class, 'store']);
+    });
+});
+
 
 //Api xass
 Route::get('/api/bansis-app/XassInventario.php/primo/productos', 'XassInventario\Primo\ProductoController@getProductos');
@@ -159,14 +166,14 @@ Route::get('api/bansis-app/index.php/informe/enfunde/semanal-empleados/detalle',
 Route::get('api/bansis-app/index.php/informe/enfunde-pdf/semanal-empleados', 'Hacienda\EnfundeController@enfundeSemanal_PDF');
 
 //Api HelperCosecha
-Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintas-semana', 'Sisban\CosechaController@getCintasSemana');
-Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintaRecobro', 'Sisban\CosechaController@getCintaRecobro');
-Route::get('api/bansis-app/index.php/recepcion/{hacienda}/status', 'Sisban\CosechaController@statusCosecha');
-Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha', 'Sisban\CosechaController@getCosecha');
-Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lote', 'Sisban\CosechaController@getCosechaLote');
-Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lotes', 'Sisban\CosechaController@getLotesCortadosDia');
-Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cajas-dia', 'Sisban\CosechaController@getCajasDia');
-Route::get('api/bansis-app/index.php/recepcion/{hacienda}/lotesRecobro', 'Sisban\CosechaController@getLotesRecobro');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintas-semana', 'Sisban\Cosecha\CosechaController@getCintasSemana');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintaRecobro', 'Sisban\Cosecha\CosechaController@getCintaRecobro');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/status', 'Sisban\Cosecha\CosechaController@statusCosecha');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha', 'Sisban\Cosecha\CosechaController@getCosecha');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lote', 'Sisban\Cosecha\CosechaController@getCosechaLote');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cosecha-lotes', 'Sisban\Cosecha\CosechaController@getLotesCortadosDia');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cajas-dia', 'Sisban\Cosecha\CosechaController@getCajasDia');
+Route::get('api/bansis-app/index.php/recepcion/{hacienda}/lotesRecobro', 'Sisban\Cosecha\CosechaController@getLotesRecobro');
 
 //Dashboard Enfunde
 Route::get('api/bansis-app/index.php/dashboard/enfunde/enfunde-periodo', 'Hacienda\EnfundeController@dashboardEnfundePeriodo');
