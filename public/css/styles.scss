@@ -1,20 +1,24 @@
-.cabecera{
-    position: relative;
-    flex: 1;
-    margin: 0 auto;
-    border: 1px black solid;
+* {
+    font-family: Verdana, Arial, sans-serif;
 }
 
-.detalle{
-    display: flex;
+html {
+    margin: 40px;
 }
 
-.texto-detalle{
-    display: block;
-    padding: 5px;
+table {
+    font-size: x-small;
 }
 
-.logo{
-    margin: 3px;
-    border: 1px solid black;
+tfoot tr td {
+    font-weight: bold;
+    font-size: x-small;
+}
+
+.gray-primary {
+    background-color: #eeeeee
+}
+
+.gray {
+    background-color: lightgray
 }

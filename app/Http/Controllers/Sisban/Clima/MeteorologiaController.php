@@ -55,6 +55,27 @@ class MeteorologiaController extends Controller
                     }
                 }
 
+
+                //Precipitacion
+                $datas_precipitacion = $params_array['Precipitacion'];
+                if (count($datas_precipitacion) > 0) {
+                    foreach ($datas_precipitacion as $precipitacion) {
+                        $nw_precipitacion = Precipitacion::existe($precipitacion['fecha'], $precipitacion['hacienda']['id']);
+                        if (!is_object($nw_precipitacion)) {
+                            $nw_precipitacion = new Precipitacion();
+                            $nw_precipitacion->fecha = $precipitacion['fecha'];
+                            $nw_precipitacion->idhacienda = $precipitacion['hacienda']['id'];
+                            $nw_precipitacion->total = $precipitacion['total'];
+                            $nw_precipitacion->created_at = Carbon::now()->format(config('constants.format_date'));
+                            $nw_precipitacion->updated_at = Carbon::now()->format(config('constants.format_date'));
+                        } else {
+                            $nw_precipitacion->total = $precipitacion['total'];
+                            $nw_precipitacion->updated_at = Carbon::now()->format(config('constants.format_date'));
+                        }
+                        $nw_precipitacion->save();
+                    }
+                }
+
                 //Micrometro
                 $datas_micrometro = $params_array['Micrometro'];
                 if (count($datas_micrometro) > 0) {
@@ -77,30 +98,24 @@ class MeteorologiaController extends Controller
                         $fecha_anterior = date('Y-m-d', strtotime($micrometro['fecha'] . " -1 days"));
                         $edit_micrometro = Micrometro::existe($fecha_anterior);
                         if (!empty($edit_micrometro)) {
-                            $edit_micrometro->evaporacion = abs($micrometro['total'] - $edit_micrometro->total);
+                            $precipitacion_mm = 0;
+
+                            if ($micrometro['calcPrecipitacion'] == 1) {
+                                //Por lo general se escoge la precipitacion de la Hacienda Primo - codigo 1
+                                $precipitacion = Precipitacion::existe($fecha_anterior, $micrometro['haciendaPrecipitacion']['id']);
+                                if ($precipitacion) {
+                                    $precipitacion_mm = $precipitacion->total;
+                                }
+                            }
+
+                            if ($micrometro['enrase'] == 1) {
+                                $edit_micrometro->evaporacion = abs($micrometro['total'] - ($micrometro['tenrase'] + $precipitacion_mm));
+                            } else {
+                                $edit_micrometro->evaporacion = abs($micrometro['total'] - ($edit_micrometro->total + $precipitacion_mm));
+                            }
                             $edit_micrometro->updated_at = Carbon::now()->format(config('constants.format_date'));
                             $edit_micrometro->update();
                         }
-                    }
-                }
-
-                //Precipitacion
-                $datas_precipitacion = $params_array['Precipitacion'];
-                if (count($datas_precipitacion) > 0) {
-                    foreach ($datas_precipitacion as $precipitacion) {
-                        $nw_precipitacion = Precipitacion::existe($precipitacion['fecha'], $precipitacion['hacienda']['id']);
-                        if (!is_object($nw_precipitacion)) {
-                            $nw_precipitacion = new Precipitacion();
-                            $nw_precipitacion->fecha = $precipitacion['fecha'];
-                            $nw_precipitacion->idhacienda = $precipitacion['hacienda']['id'];
-                            $nw_precipitacion->total = $precipitacion['total'];
-                            $nw_precipitacion->created_at = Carbon::now()->format(config('constants.format_date'));
-                            $nw_precipitacion->updated_at = Carbon::now()->format(config('constants.format_date'));
-                        } else {
-                            $nw_precipitacion->total = $precipitacion['total'];
-                            $nw_precipitacion->updated_at = Carbon::now()->format(config('constants.format_date'));
-                        }
-                        $nw_precipitacion->save();
                     }
                 }
 

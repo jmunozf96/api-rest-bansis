@@ -34,7 +34,8 @@ class BodEgresosController extends Controller
             $empleado = $request->get('empleado');
 
             $egresos = EgresoBodega::select('BOD_EGRESOS.id', 'calendario.codigo as idcalendario',
-                'calendario.periodo', 'calendario.semana', 'BOD_EGRESOS.idempleado', 'BOD_EGRESOS.updated_at', 'BOD_EGRESOS.estado')
+                'calendario.periodo', 'calendario.semana', 'BOD_EGRESOS.idempleado',
+                'BOD_EGRESOS.updated_at', 'BOD_EGRESOS.estado')
                 ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'BOD_EGRESOS.fecha_apertura');
 
             if (!empty($periodo) && isset($periodo))

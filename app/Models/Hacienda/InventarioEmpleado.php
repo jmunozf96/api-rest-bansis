@@ -13,9 +13,13 @@ class InventarioEmpleado extends BaseModel
         return $this->hasOne('App\Models\Bodega\Material', 'id', 'idmaterial');
     }
 
+    public function empleado(){
+        return $this->hasOne(Empleado::class, 'id', 'idempleado');
+    }
+
     public function saldoFinal()
     {
-        $this->sld_final = (($this->sld_inicial + $this->tot_egreso) - $this->tot_consumo);
+        $this->sld_final = ((+$this->sld_inicial + +$this->tot_egreso) - +$this->tot_consumo);
     }
 
     public static function existeInventario(InventarioEmpleado $inventario)

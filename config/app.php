@@ -177,7 +177,8 @@ return [
         \App\Providers\HelperProvider::class,
         \App\Providers\JwtAuthServiceProvider::class,
         Barryvdh\DomPDF\ServiceProvider::class,
-
+        Elibyy\TCPDF\ServiceProvider::class,
+        \App\Providers\PdfInformeServiceProvider::class,
     ],
 
     /*
@@ -231,6 +232,8 @@ return [
         'Servicios' => \App\Helpers\Helper::class,
         'JwtAuth' => \App\Helpers\JwtAuth::class,
         'PDF' => Barryvdh\DomPDF\Facade::class,
+        'TCPDF' => Elibyy\TCPDF\Facades\TCPDF::class,
+        'InformePDF' => \App\Helpers\InformePDF::class,
     ],
 
 ];

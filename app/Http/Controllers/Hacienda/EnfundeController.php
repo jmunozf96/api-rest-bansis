@@ -18,7 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Barryvdh\DomPDF\PDF;
+use App\Helpers\InformePDF;
 
 class EnfundeController extends Controller
 {
@@ -582,28 +582,29 @@ class EnfundeController extends Controller
     public function closeEnfundeSemanal($id)
     {
         try {
-            $enfunde = Enfunde::where('id', $id)->first();
-            $enfunde_detalle = EnfundeDet::where('idenfunde', $enfunde->id)->get();
-
-            if (is_object($enfunde) && count($enfunde_detalle) > 0) {
+            $enfunde = Enfunde::where('id', $id)->first(); //Buscamos la cabecera del enfunde
+            if (is_object($enfunde)) {
                 DB::beginTransaction();
                 if ($enfunde->presente == 0) {
                     //Primer cierre Presente
-                    $enfunde->presente = 1;
+                    $enfunde->presente = true;
+                    $enfunde->cerrado = 1;
+                    $enfunde->updated_at = Carbon::now()->format(config('constants.format_date'));
+                    $enfunde->save();
+
                     $this->out = $this->respuesta_json('success', 200, 'Enfunde Presente cerrado con exito');
                     $this->out['enfundePresente'] = [
                         "presente" => "Se ha reportado el enfunde Presente Correctamente"
                     ];
-                } else if ($enfunde->presente == 1 && $enfunde->cerrado == 1) {
-                    $empleados = EnfundeDet::groupBy('empleado.id')
+                } else if ($enfunde->futuro == 0) {
+                    $empleados = EnfundeDet::groupBy('seccion.idempleado')
                         ->join('HAC_LOTSEC_LABEMPLEADO_DET as sec_det', 'sec_det.id', 'HAC_DET_ENFUNDES.idseccion')
                         ->join('HAC_LOTSEC_LABEMPLEADO as seccion', 'seccion.id', 'sec_det.idcabecera')
-                        ->join('HAC_EMPLEADOS as empleado', 'empleado.id', 'seccion.idempleado')
-                        ->select('empleado.id')
+                        ->select('seccion.idempleado')
                         ->where([
                             'idenfunde' => $enfunde->id,
                             'idreelevo' => null
-                        ])->get()->pluck('id')->toArray();
+                        ])->get()->pluck('idempleado')->toArray();
 
                     $reelevos = EnfundeDet::groupBy('empleado.id')
                         ->join('HAC_EMPLEADOS as empleado', 'empleado.id', 'HAC_DET_ENFUNDES.idreelevo')
@@ -614,11 +615,15 @@ class EnfundeController extends Controller
                         ])->get()->pluck('id')->toArray();
 
                     //1 es el Id del grupo de enfunde
+                    //Empleados con despachos pero sin reportar enfunde
                     $empleados_sin_enfunde = Empleado::whereNotIn('id', $empleados)
                         ->whereNotIn('id', $reelevos)
                         ->where('idhacienda', $enfunde->idhacienda)
                         ->whereHas('inventario', function ($query) use ($enfunde) {
-                            $query->where('idcalendar', $enfunde->idcalendar);
+                            $query->where([
+                                'idcalendar' => $enfunde->idcalendar,
+                                ['sld_final', '>', 0]
+                            ]);
                             $query->whereHas('material', function ($query) {
                                 $query->whereHas('getGrupo', function ($query) {
                                     //Grupo de enfunde en la base de datos
@@ -628,6 +633,7 @@ class EnfundeController extends Controller
                         })
                         ->get()->pluck('id')->toArray();
 
+                    //Una vez que se han seleccionado todos los empleados, se procede a mover el inventario
 
                     $empleados_semana = array_merge($empleados, $reelevos, $empleados_sin_enfunde);
                     $futuro = strtotime(str_replace('/', '-', $enfunde->fecha . "+ 7 days"));
@@ -636,11 +642,7 @@ class EnfundeController extends Controller
 
                     $empleados_traspasos = array();
                     foreach ($empleados_semana as $empleado):
-                        $inventarios_empleado = InventarioEmpleado::where([
-                            'idempleado' => $empleado,
-                            'idcalendar' => $enfunde->idcalendar,
-                        ])->get();
-
+                        //Se cierran los despachos de bodega
                         $egreso = EgresoBodega::from('BOD_EGRESOS as egreso')
                             ->select('egreso.id', 'egreso.fecha_apertura', 'egreso.idempleado', 'egreso.parcial', 'egreso.final', 'egreso.estado')
                             ->join('SIS_CALENDARIO_DOLE AS calendario', 'calendario.fecha', 'egreso.fecha_apertura')
@@ -655,75 +657,86 @@ class EnfundeController extends Controller
                             $egreso->save();
                         }
 
-                        foreach ($inventarios_empleado as $inventario):
-                            $inventario_empleado = InventarioEmpleado::where([
-                                'idempleado' => $empleado,
-                                'idmaterial' => $inventario->idmaterial,
-                                'idcalendar' => $inventario->idcalendar
-                            ])->first();
+                        $inventarios_empleado = InventarioEmpleado::where([
+                            'idempleado' => $empleado,
+                            'idcalendar' => $enfunde->idcalendar,
+                            ['sld_final', '>', 0]
+                        ])->get();
 
-                            if (is_object($inventario_empleado)) {
-                                $inventario_empleado->estado = 0;
-                                $inventario_empleado->save();
-                                if ($inventario_empleado->sld_final > 0 || $inventario_empleado->tot_consumo == 0) {
-                                    //Si ya se ha registrado un despacho
-                                    $inventarios_empleado_siguiente_semana = InventarioEmpleado::where([
-                                        'idempleado' => $empleado,
-                                        'idcalendar' => $calendario_fut->codigo,
-                                        'idmaterial' => $inventario_empleado->idmaterial
-                                    ])->first();
+                        if (count($inventarios_empleado) > 0):
+                            foreach ($inventarios_empleado as $inventario):
+                                $inventario_empleado = InventarioEmpleado::where([
+                                    'idempleado' => $empleado,
+                                    'idmaterial' => $inventario->idmaterial,
+                                    'idcalendar' => $inventario->idcalendar
+                                ])->first();
 
-                                    if (!is_object($inventarios_empleado_siguiente_semana) && empty($inventarios_empleado_siguiente_semana)) {
-                                        //Lo pasamos a la siguiente semana
-                                        $inventarios_empleado_siguiente_semana = new InventarioEmpleado();
-                                        //$inventarios_empleado_siguiente_semana->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
-                                        $inventarios_empleado_siguiente_semana->idempleado = $empleado;
-                                        $inventarios_empleado_siguiente_semana->idmaterial = $inventario_empleado->idmaterial;
-                                        $inventarios_empleado_siguiente_semana->idcalendar = $calendario_fut->codigo;
-                                        $inventarios_empleado_siguiente_semana->tot_egreso = 0;
-                                        $inventarios_empleado_siguiente_semana->tot_consumo = 0;
-                                        $inventarios_empleado_siguiente_semana->created_at = Carbon::now()->format(config('constants.format_date'));
+                                if (is_object($inventario_empleado)) {
+                                    $inventario_empleado->estado = 0;
+                                    $inventario_empleado->save();
+                                    if ($inventario_empleado->sld_final > 0 || $inventario_empleado->tot_consumo == 0) {
+                                        //Si ya se ha registrado un despacho
+                                        $inventarios_empleado_siguiente_semana = InventarioEmpleado::where([
+                                            'idempleado' => $empleado,
+                                            'idcalendar' => $calendario_fut->codigo,
+                                            'idmaterial' => $inventario_empleado->idmaterial
+                                        ])->first();
+
+                                        if (!is_object($inventarios_empleado_siguiente_semana)) {
+                                            //Lo pasamos a la siguiente semana
+                                            $inventarios_empleado_siguiente_semana = new InventarioEmpleado();
+                                            //$inventarios_empleado_siguiente_semana->codigo = $this->codigoTransaccionInventario($enfunde->idhacienda);
+                                            $inventarios_empleado_siguiente_semana->idempleado = $empleado;
+                                            $inventarios_empleado_siguiente_semana->idmaterial = $inventario_empleado->idmaterial;
+                                            $inventarios_empleado_siguiente_semana->idcalendar = $calendario_fut->codigo;
+                                            $inventarios_empleado_siguiente_semana->tot_egreso = 0;
+                                            $inventarios_empleado_siguiente_semana->tot_consumo = 0;
+                                            $inventarios_empleado_siguiente_semana->tot_devolucion = 0;
+                                            $inventarios_empleado_siguiente_semana->created_at = Carbon::now()->format(config('constants.format_date'));
+                                        }
+
+                                        $inventarios_empleado_siguiente_semana->sld_inicial = intval($inventario_empleado->sld_final);
+                                        $inventarios_empleado_siguiente_semana->saldoFinal();
+                                        $inventarios_empleado_siguiente_semana->updated_at = Carbon::now()->format(config('constants.format_date'));
+                                        $inventarios_empleado_siguiente_semana->save();
                                     }
-
-                                    $inventarios_empleado_siguiente_semana->sld_inicial = $inventario_empleado->sld_final;
-                                    $inventarios_empleado_siguiente_semana->sld_final = (+$inventarios_empleado_siguiente_semana->sld_inicial + +$inventarios_empleado_siguiente_semana->tot_egreso) - $inventarios_empleado_siguiente_semana->tot_consumo;
-                                    $inventarios_empleado_siguiente_semana->updated_at = Carbon::now()->format(config('constants.format_date'));
-                                    $inventarios_empleado_siguiente_semana->save();
                                 }
-                            }
-                        endforeach;
+                            endforeach;
 
-                        $empleado_procesado = Empleado::select('id', 'nombres')
-                            ->with(['inventario' => function ($query) use ($calendario_fut) {
-                                $query->where('idcalendar', $calendario_fut->codigo);
-                                $query->where('sld_inicial', '>', 0);
-                                $query->select('id', 'idempleado', 'idmaterial', 'sld_inicial', 'estado');
-                                $query->with(['material' => function ($query) {
-                                    $query->select('id', 'codigo', 'descripcion');
-                                }]);
-                            }])
-                            ->whereHas('inventario', function ($query) use ($calendario_fut) {
-                                $query->where('idcalendar', $calendario_fut->codigo);
-                                $query->where('sld_inicial', '>', 0);
-                            })
-                            ->where('id', $empleado)
-                            ->first();
-                        array_push($empleados_traspasos, $empleado_procesado);
+                            $empleado_procesado = Empleado::select('id', 'nombres')
+                                ->with(['inventario' => function ($query) use ($calendario_fut) {
+                                    $query->where('idcalendar', $calendario_fut->codigo);
+                                    $query->where('sld_inicial', '>', 0);
+                                    $query->select('id', 'idempleado', 'idmaterial', 'sld_inicial', 'estado');
+                                    $query->with(['material' => function ($query) {
+                                        $query->select('id', 'codigo', 'descripcion');
+                                    }]);
+                                }])
+                                ->whereHas('inventario', function ($query) use ($calendario_fut) {
+                                    $query->where('idcalendar', $calendario_fut->codigo);
+                                    $query->where('sld_inicial', '>', 0);
+                                })
+                                ->where('id', $empleado)
+                                ->first();
+                            array_push($empleados_traspasos, $empleado_procesado);
+                        endif;
                     endforeach;
 
                     $enfunde->futuro = true;
                     $enfunde->cerrado += 1;
+                    $enfunde->updated_at = Carbon::now()->format(config('constants.format_date'));
+                    $enfunde->save();
+
                     $this->out = $this->respuesta_json('success', 200, 'Enfunde Futuro cerrado con exito');
                     $this->out['transfers'] = $empleados_traspasos;
+
+                } else {
+                    $this->out = $this->respuesta_json('success', 200, 'Ya se cerro esta semana de enfunde.');
                 }
 
-                if ($enfunde->cerrado == 0)
-                    $enfunde->cerrado = 1;
-
-                $enfunde->updated_at = Carbon::now()->format(config('constants.format_date'));
-                $enfunde->save();
                 DB::commit();
                 return response()->json($this->out, 200);
+
             }
 
             throw new \Exception('No se puede cerrar el enfunde');
@@ -748,9 +761,7 @@ class EnfundeController extends Controller
         try {
             $idhacienda = $request->get('hacienda');
             $idcalendar = $request->get('calendario');
-            $idseccion = $request->get('seccion');
             $idempleado = $request->get('empleado');
-            $grupo = $request->get('grupoMaterial');
 
             if (!empty($idcalendar)) {
                 $secciones_empleado = LoteSeccionLaborEmp::where('idempleado', $idempleado)->first();
@@ -768,7 +779,7 @@ class EnfundeController extends Controller
                     ->where([
                         'idcalendar' => $idcalendar,
                         'idhacienda' => $idhacienda
-                    ])->with(['detalle' => function ($query) use ($secciones, $idseccion) {
+                    ])->with(['detalle' => function ($query) use ($secciones) {
                         $query->select('id', 'idenfunde', 'idmaterial', 'idseccion', 'cant_pre', 'cant_fut', 'cant_desb', 'reelevo', 'idreelevo');
                         $query->whereIn('idseccion', $secciones);
                         $query->with(['seccion' => function ($query) {
@@ -781,6 +792,10 @@ class EnfundeController extends Controller
                             }]);
                         }]);
                     }])->first();
+
+                $enfunde_status = new \stdClass();
+                $enfunde_status->status_presente = (bool)$enfundeDetalle->presente;
+                $enfunde_status->status_futuro = (bool)$enfundeDetalle->futuro;
 
                 $datos = array();
                 if (is_object($enfundeDetalle)) {
@@ -840,6 +855,7 @@ class EnfundeController extends Controller
                 }
 
                 $this->out = $this->respuesta_json('success', 200, 'Se devuelven registros');
+                $this->out['dataEnfunde'] = $enfunde_status;
                 $this->out['dataArray'] = $datos;
                 $this->out['saldoEmpleado'] = $totalSaldo;
                 return response()->json($this->out, 200);
@@ -863,7 +879,6 @@ class EnfundeController extends Controller
     public function destroy($id)
     {
         try {
-
 
             throw new \Exception('No se encontraron datos');
         } catch (\Exception $ex) {
@@ -974,6 +989,7 @@ class EnfundeController extends Controller
     public function informeSemanalEnfunde(Request $request)
     {
         try {
+            $hacienda = $request->get('hacienda');
             $enfunde = Enfunde::groupBy('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'HAC_ENFUNDES.idhacienda',
                 'calendario.semana', 'calendario.periodo', 'calendario.color', 'HAC_ENFUNDES.fecha')
                 ->rightJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
@@ -990,9 +1006,15 @@ class EnfundeController extends Controller
                     $query->select('id', 'detalle');
                 }])
                 ->orderBy('HAC_ENFUNDES.idcalendar', 'desc')
-                ->orderBy('HAC_ENFUNDES.idhacienda')
-                ->paginate(10);
+                ->orderBy('HAC_ENFUNDES.idhacienda');
 
+            if (!empty($hacienda) && isset($hacienda) && !is_null($hacienda)) {
+                $enfunde = $enfunde->where([
+                    'HAC_ENFUNDES.idhacienda' => $hacienda
+                ]);
+            }
+
+            $enfunde = $enfunde->paginate(10);
 
             return response()->json($enfunde, 200);
         } catch (\Exception $ex) {
@@ -1139,10 +1161,359 @@ class EnfundeController extends Controller
         }
     }
 
-    public function enfundeSemanal_PDF()
+    public function enfundeSemanal_PDF($id, Request $request)
     {
-        $pdf = \PDF::loadView('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
-        return $pdf->download('ejemplo.pdf');
+        $data = Enfunde::where(['id' => $id])->first();
+        $extension = $request->get('extension');
+        $lotes = $request->get('lotes');
+        $material_saldos = $request->get('saldos');
+        if ($extension !== null):
+            if (is_object($data)):
+                if ($lotes !== null || $material_saldos !== null):
+                    $hacienda = Hacienda::where(['id' => $data->idhacienda])->first();
+                    $calendario = Calendario::getCalendario($data->fecha);
+                    $detalle = Enfunde::groupBy('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'empleado.id', 'empleado.codigo', 'empleado.nombres')
+                        ->rightJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
+                        ->rightJoin('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
+                        ->rightJoin('HAC_LOTSEC_LABEMPLEADO as cabeceraSeccion', 'cabeceraSeccion.id', 'seccion.idcabecera')
+                        ->rightJoin('HAC_EMPLEADOS as empleado', 'empleado.id', 'cabeceraSeccion.idempleado')
+                        ->select('HAC_ENFUNDES.id as idenfunde', 'HAC_ENFUNDES.idcalendar', 'empleado.id as idempleado', 'empleado.codigo', 'empleado.nombres',
+                            DB::raw('sum(detalle.cant_pre) as presente'),
+                            DB::raw('sum(detalle.cant_fut) as futuro'))
+                        ->where(['HAC_ENFUNDES.id' => $data->id])
+                        ->get();
+
+                    if (count($detalle) > 0) {
+                        if ($lotes !== null):
+                            foreach ($detalle as $lotero):
+                                //Seccion y enfunde
+                                $lotero->lotes = EnfundeDet::from('HAC_DET_ENFUNDES as detalle')
+                                    ->where(['idenfunde' => $lotero->idenfunde])
+                                    ->groupBy('lseccion.alias', 'detalle.idreelevo')
+                                    ->select(DB::raw("RIGHT('' + LTRIM(lseccion.alias), 3) alias"),
+                                        DB::raw("sum(cant_pre) cant_pre"),
+                                        DB::raw("sum(cant_fut) cant_fut"), 'detalle.idreelevo')
+                                    ->join('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
+                                    ->join('HAC_LOTSEC_LABEMPLEADO as cabeceraSeccion', 'cabeceraSeccion.id', 'seccion.idcabecera')
+                                    ->join('HAC_LOTES_SECCION as lseccion', 'lseccion.id', 'seccion.idlote_sec')
+                                    ->join('HAC_EMPLEADOS as empleado', 'empleado.id', 'cabeceraSeccion.idempleado')
+                                    ->where([
+                                        'empleado.id' => $lotero->idempleado
+                                    ])
+                                    ->with(['reelevo' => function ($query) {
+                                        $query->select('id', 'codigo', 'cedula', 'nombres', 'nombre1', 'nombre2', 'apellido1', 'apellido2');
+                                    }])
+                                    ->orderByRaw("RIGHT('' + LTRIM(lseccion.alias), 3)")
+                                    ->get();
+                            endforeach;
+                        elseif ($material_saldos !== null):
+                            $empleados = EnfundeDet::groupBy('seccion.idempleado')
+                                ->join('HAC_LOTSEC_LABEMPLEADO_DET as sec_det', 'sec_det.id', 'HAC_DET_ENFUNDES.idseccion')
+                                ->join('HAC_LOTSEC_LABEMPLEADO as seccion', 'seccion.id', 'sec_det.idcabecera')
+                                ->select('seccion.idempleado')
+                                ->where([
+                                    'idenfunde' => $data->id,
+                                    'idreelevo' => null
+                                ])->get()->pluck('idempleado')->toArray();
+
+                            $reelevos = EnfundeDet::groupBy('empleado.id')
+                                ->join('HAC_EMPLEADOS as empleado', 'empleado.id', 'HAC_DET_ENFUNDES.idreelevo')
+                                ->select('empleado.id')
+                                ->where([
+                                    'idenfunde' => $data->id,
+                                    'reelevo' => 1
+                                ])->get()->pluck('id')->toArray();
+
+                            //1 es el Id del grupo de enfunde
+                            //Empleados con despachos pero sin reportar enfunde
+                            $empleados_sin_enfunde = Empleado::whereNotIn('id', $empleados)
+                                ->whereNotIn('id', $reelevos)
+                                ->where('idhacienda', $data->idhacienda)
+                                ->whereHas('inventario', function ($query) use ($data) {
+                                    $query->where([
+                                        'idcalendar' => $data->idcalendar,
+                                        //['sld_final', '>', 0]
+                                    ]);
+                                    $query->whereHas('material', function ($query) {
+                                        $query->whereHas('getGrupo', function ($query) {
+                                            //Grupo de enfunde en la base de datos
+                                            $query->where('id', 1);
+                                        });
+                                    });
+                                })
+                                ->get()->pluck('id')->toArray();
+
+                            //Una vez que se han seleccionado todos los empleados, se procede a mover el inventario
+
+                            $empleados_semana = array_merge($empleados, $reelevos, $empleados_sin_enfunde);
+                            //Materiales saldo
+                            $detalle = InventarioEmpleado::where([
+                                'idcalendar' => $data->idcalendar,
+                                //['sld_final', '>', 0]
+                            ])
+                                ->whereIn('idempleado', $empleados_semana)
+                                ->select('id', 'idcalendar', 'idempleado', 'idmaterial', 'sld_inicial', 'tot_egreso', 'tot_consumo', 'tot_devolucion', 'sld_final')
+                                ->with(['material' => function ($query) {
+                                    $query->select('id', 'codigo', 'descripcion');
+                                }])
+                                ->with(['empleado' => function ($query) {
+                                    $query->select('id', 'codigo', 'cedula', 'nombres', 'nombre1', 'nombre2', 'apellido1', 'apellido2');
+                                }])
+                                ->get();
+
+                        endif;
+                    }
+
+                    //return response()->json($detalle);
+                    switch ($extension):
+                        case 'pdf':
+                            if ($lotes !== null):
+                                $pdf = new InformePDF("Infome enfunde semanal - Lotero");
+                                $fecha = date("d/m/Y");
+                                $hora = date("H:i:s");
+                                $pdf->cabecera($hacienda->detalle, "Fecha: $fecha\nHora: $hora");
+                                $build = $pdf->build();
+                                $build->AddPage();
+                                $build->SetFont('Helvetica', 'B', 9);
+                                $build->Cell(0, 0, 'REPORTE DE ENFUNDE SEMANAL', 0, 1, 'C', 0);
+                                $build->Cell(0, 0, "Periodo: " . $calendario->periodo . " - Semana: " . $calendario->semana, 0, 1, 'L', 0);
+                                $build->writeHTML("<hr>", true, false, false, false, '');
+                                $fill = $build->SetFillColor(230, 230, 230);
+                                $build->Cell(10, 0, '#', 0, 0, 'C', $fill);
+                                $build->Cell(20, 0, 'Lotes', 0, 0, 'C', $fill);
+                                $build->Cell(50, 0, 'Reelevo', 0, 0, 'C', $fill);
+                                $build->Cell(40, 0, 'Presente', 0, 0, 'C', $fill);
+                                $build->Cell(40, 0, 'Futuro', 0, 0, 'C', $fill);
+                                $build->Cell(40, 0, 'Total', 0, 0, 'C', $fill);
+                                $build->Ln();
+
+                                $total_Loteros = 0;
+                                $total_enfunde_presente = 0;
+                                $total_enfunde_futuro = 0;
+
+                                //Indicadores
+                                $empleado_maximo = '';
+                                $maximo = 0;
+                                $empleado_minimo = '';
+                                $minimo = 0;
+
+                                foreach ($detalle as $index => $lotero):
+                                    $index += 1;
+                                    $total_Loteros += 1;
+                                    $build->SetFont('Helvetica', 'B', 8);
+                                    $build->Cell(200, 0, "Lotero $index: $lotero->nombres", 0, 1, 'L', $fill);
+                                    $build->SetFont('Helvetica', '', 8);
+
+                                    $total_presente = 0;
+                                    $total_futuro = 0;
+                                    foreach ($lotero->lotes as $key => $lote):
+                                        $build->Cell(10, 0, $key + 1, 0, 0, 'C');
+                                        $build->Cell(20, 0, $lote->alias, 0, 0, 'C');
+
+                                        $build->SetFont('Helvetica', '', 7);
+                                        $reelevo = $lote->reelevo ? $lote->reelevo->apellido1 . " " . $lote->reelevo->nombre1 . " " . $lote->reelevo->nombre2 : '';
+                                        $build->Cell(10, 0, $lote->reelevo ? $lote->reelevo->codigo : '', 0, 0, 'L');
+                                        $build->Cell(40, 0, $reelevo, 0, 0, 'R');
+                                        $build->SetFont('Helvetica', '', 8);
+
+                                        $build->Cell(40, 0, $lote->cant_pre, 0, 0, 'C');
+                                        $build->Cell(40, 0, $lote->cant_fut, 0, 0, 'C');
+                                        $build->Cell(40, 0, $lote->cant_pre + $lote->cant_fut, 0, 0, 'C');
+                                        $build->Ln();
+
+                                        $total_presente += $lote->cant_pre;
+                                        $total_futuro += $lote->cant_fut;
+                                    endforeach;
+
+                                    $fill = $build->SetFillColor(245, 245, 245);
+                                    $build->SetFont('Helvetica', 'B', 8);
+                                    $build->Cell(80, 0, '', 0, 0, 'C');
+                                    $build->Cell(40, 0, $total_presente, 0, 0, 'C', $fill);
+                                    $build->Cell(40, 0, $total_futuro, 0, 0, 'C', $fill);
+                                    $build->Cell(40, 0, $total_presente + $total_futuro, 0, 0, 'C', $fill);
+                                    $fill = $build->SetFillColor(230, 230, 230);
+                                    $build->SetFont('Helvetica', '', 8);
+                                    $build->Ln();
+
+                                    if ($maximo == 0):
+                                        $maximo = $total_presente + $total_futuro;
+                                        $empleado_maximo = $lotero->nombres;
+                                    elseif ($maximo < ($total_presente + $total_futuro)):
+                                        $maximo = $total_presente + $total_futuro;
+                                        $empleado_maximo = $lotero->nombres;
+                                    endif;
+
+                                    if ($minimo == 0):
+                                        $minimo = $total_presente + $total_futuro;
+                                        $empleado_minimo = $lotero->nombres;
+                                    elseif ($minimo > ($total_presente + $total_futuro)):
+                                        $minimo = $total_presente + $total_futuro;
+                                        $empleado_minimo = $lotero->nombres;
+                                    endif;
+
+                                    $total_enfunde_presente += $total_presente;
+                                    $total_enfunde_futuro += $total_futuro;
+                                endforeach;
+
+                                $build->Ln();
+                                $build->SetFont('Helvetica', 'B', 12);
+                                $build->Cell(80, 0, '', 0, 0, 'C');
+                                $build->Cell(40, 0, $total_enfunde_presente, 0, 0, 'C', $fill);
+                                $build->Cell(40, 0, $total_enfunde_futuro, 0, 0, 'C', $fill);
+                                $build->Cell(40, 0, $total_enfunde_presente + $total_enfunde_futuro, 0, 0, 'C', $fill);
+                                $build->writeHTML("<hr>", true, false, false, false, '');
+                                $build->Ln();
+
+                                $promedio = round(($total_enfunde_presente + $total_enfunde_futuro) / $total_Loteros, 0);
+                                $build->Cell(40, 0, "Enfunde Promedio:", 0, 0, 'L');
+                                $build->Cell(40, 0, $promedio, 0, 0, 'L');
+                                $build->Ln();
+                                $build->writeHTML("<hr>", 0, false, false, false, '');
+                                $build->Cell(40, 0, "Enfunde Máximo:", 0, 0, 'L');
+                                $build->Cell(8, 0, $maximo, 0, 0, 'L');
+                                $build->Cell(40, 0, "| $empleado_maximo", 0, 0, 'L');
+                                $build->Ln();
+                                $build->Cell(40, 0, "Enfunde Mínimo:", 0, 0, 'L');
+                                $build->Cell(8, 0, $minimo, 0, 0, 'L');
+                                $build->Cell(40, 0, "| $empleado_minimo", 0, 0, 'L');
+                                $build->Ln();
+
+                                $pdf->generar("Enfunde-semanal.pdf");
+
+                            elseif ($material_saldos !== null):
+                                $pdf = new InformePDF("Infome saldo final - loteros");
+                                $fecha = date("d/m/Y");
+                                $hora = date("H:i:s");
+                                $pdf->cabecera($hacienda->detalle, "Fecha: $fecha\nHora: $hora");
+                                $build = $pdf->build();
+                                $build->AddPage();
+                                $build->SetFont('Helvetica', 'B', 9);
+                                $build->Cell(0, 0, 'REPORTE DE SALDO FINAL AL CIERRE DE SEMANA', 0, 1, 'C', 0);
+                                $build->Cell(0, 0, "Periodo: " . $calendario->periodo . " - Semana: " . $calendario->semana, 0, 1, 'L', 0);
+                                $build->writeHTML("<hr>", true, false, false, false, '');
+                                $fill = $build->SetFillColor(230, 230, 230);
+                                $build->Cell(15, 0, 'Codigo', 0, 0, 'C', $fill);
+                                $build->Cell(65, 0, 'Empleado', 0, 0, 'C', $fill);
+                                $build->Cell(80, 0, 'Material', 0, 0, 'C', $fill);
+                                $build->Cell(40, 0, 'Saldo', 0, 0, 'C', $fill);
+                                $build->Ln();
+
+                                $materiales_usados = array();
+                                foreach ($detalle as $index => $item):
+                                    $build->SetFont('Helvetica', 'B', 8);
+                                    $build->Cell(15, 0, $item->empleado->codigo, 0, 0, 'C');
+                                    $build->Cell(65, 0, $item->empleado->nombres, 0, 0, 'L');
+                                    $build->SetFont('Helvetica', '', 6);
+                                    $build->Cell(15, 0, $item->material->codigo, 0, 0, 'L');
+                                    $build->SetFont('Helvetica', '', 7);
+                                    $build->Cell(65, 0, $item->material->descripcion, 0, 0, 'L');
+                                    $build->Ln();
+
+                                    $build->SetFont('Helvetica', 'B', 8);
+                                    $build->Cell(120, 0, "", 0, 0, 'C');
+                                    $build->Cell(40, 0, "Saldo Inicial", 0, 0, 'R');
+                                    $build->Cell(40, 0, $item->sld_inicial, 0, 0, 'C');
+                                    $build->Ln();
+                                    $build->Cell(120, 0, "", 0, 0, 'C');
+                                    $build->Cell(40, 0, "Total Egreso", 0, 0, 'R');
+                                    $build->Cell(40, 0, $item->tot_egreso, 0, 0, 'C');
+                                    $build->Ln();
+                                    $build->Cell(120, 0, "", 0, 0, 'C');
+                                    $build->Cell(40, 0, "Total Consumo", 0, 0, 'R');
+                                    $build->Cell(40, 0, $item->tot_consumo, 0, 0, 'C');
+                                    $build->Ln();
+                                    $build->Cell(120, 0, "", 0, 0, 'C');
+                                    $build->Cell(40, 0, "Total Devolucion", 0, 0, 'R');
+                                    $build->Cell(40, 0, $item->tot_devolucion, 0, 0, 'C');
+                                    $build->Ln();
+                                    $build->Cell(120, 0, "", 0, 0, 'C', $fill);
+                                    $build->Cell(40, 0, "Saldo Final", 0, 0, 'R', $fill);
+                                    $build->Cell(40, 0, $item->sld_final, 0, 0, 'C', $fill);
+                                    $build->Ln();
+
+                                    $material = new \stdClass();
+                                    $material->codigo = $item->material->codigo;
+                                    $material->descripcion = $item->material->descripcion;
+                                    $material->sld_inicial = $item->sld_inicial;
+                                    $material->tot_egreso = $item->tot_egreso;
+                                    $material->tot_consumo = $item->tot_consumo;
+                                    $material->tot_devolucion = $item->tot_devolucion;
+                                    $material->sld_final = $item->sld_final;
+
+                                    if (count($materiales_usados) == 0):
+                                        array_push($materiales_usados, $material);
+                                    else:
+                                        $existe = false;
+                                        $index = 0;
+                                        foreach ($materiales_usados as $i => $item_mat):
+                                            if ($item_mat->codigo == $material->codigo):
+                                                $existe = true;
+                                                $index = $i;
+                                                break;
+                                            endif;
+                                        endforeach;
+
+                                        if (!$existe):
+                                            array_push($materiales_usados, $material);
+                                        else:
+                                            $materiales_usados[$index]->sld_inicial += $material->sld_inicial;
+                                            $materiales_usados[$index]->tot_egreso += $material->tot_egreso;
+                                            $materiales_usados[$index]->tot_consumo += $material->tot_consumo;
+                                            $materiales_usados[$index]->tot_devolucion += $material->tot_devolucion;
+                                            $materiales_usados[$index]->sld_final += $material->sld_final;
+                                        endif;
+                                    endif;
+                                endforeach;
+                                //return var_dump($materiales_usados);
+                                $build->writeHTML("<hr>", true, false, false, false, '');
+                                if (count($materiales_usados) > 0):
+                                    $build->SetFont('Helvetica', 'B', 10);
+                                    $build->Cell(100, 0, "SALDO FINAL:", 0, 0, 'L');
+                                    $build->Cell(25, 0, "S_INICIAL", 0, 0, 'C');
+                                    $build->Cell(25, 0, "DESPACHO", 0, 0, 'C');
+                                    $build->Cell(25, 0, "CONSUMO", 0, 0, 'C');
+                                    $build->Cell(25, 0, "SALDO", 0, 1, 'C');
+                                    $build->writeHTML("<hr>", 0, false, false, false, '');
+                                    $build->SetFont('Helvetica', '', 8);
+
+                                    $sld_inicial = 0;
+                                    $tot_egreso = 0;
+                                    $tot_consumo = 0;
+                                    $sld_final = 0;
+                                    foreach ($materiales_usados as $material):
+                                        $build->Cell(100, 0, $material->descripcion, 0, 0, 'L');
+                                        $build->Cell(25, 0, $material->sld_inicial, 0, 0, 'C');
+                                        $build->Cell(25, 0, $material->tot_egreso, 0, 0, 'C');
+                                        $build->Cell(25, 0, $material->tot_consumo, 0, 0, 'C');
+                                        $build->Cell(25, 0, $material->sld_final, 0, 0, 'C');
+                                        $build->Ln();
+
+                                        $sld_inicial += $material->sld_inicial;
+                                        $tot_egreso += $material->tot_egreso;
+                                        $tot_consumo += $material->tot_consumo;
+                                        $sld_final += $material->sld_final;
+                                    endforeach;
+                                    $build->writeHTML("<hr>", 0, false, false, false, '');
+                                    $build->SetFont('Helvetica', 'B', 12);
+                                    $build->Cell(100, 0, "", 0, 0, 'L');
+                                    $build->Cell(25, 0, $sld_inicial, 0, 0, 'C');
+                                    $build->Cell(25, 0, $tot_egreso, 0, 0, 'C');
+                                    $build->Cell(25, 0, $tot_consumo, 0, 0, 'C');
+                                    $build->Cell(25, 0, $sld_final, 0, 0, 'C');
+                                    $build->Ln();
+                                endif;
+                                $pdf->generar("Saldos-Final.pdf");
+                            endif;
+                            break;
+                        default:
+                            var_dump("No existe extension.");
+                            die;
+                    endswitch;
+                endif;
+            endif;
+        endif;
+
+        return "<b>Error!!!</b>, No se puede ejecutar esta consulta.";
         //return view('Informes.Hacienda.Labor.Enfunde.enfundeSemanal');
     }
 

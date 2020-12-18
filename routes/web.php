@@ -163,7 +163,7 @@ Route::get('api/bansis-app/index.php/informe/enfunde/semanal-empleados', 'Hacien
 Route::get('api/bansis-app/index.php/informe/enfunde/semanal-empleados/detalle', 'Hacienda\EnfundeController@informeSmanalEnfundeEmpleadoMaterial');
 
 //PDF
-Route::get('api/bansis-app/index.php/informe/enfunde-pdf/semanal-empleados', 'Hacienda\EnfundeController@enfundeSemanal_PDF');
+Route::get('api/bansis-app/index.php/informe/enfunde-pdf/semanal-empleados/{idenfunde}', 'Hacienda\EnfundeController@enfundeSemanal_PDF');
 
 //Api HelperCosecha
 Route::get('api/bansis-app/index.php/recepcion/{hacienda}/cintas-semana', 'Sisban\Cosecha\CosechaController@getCintasSemana');
