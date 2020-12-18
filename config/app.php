@@ -161,7 +161,6 @@ return [
         Illuminate\Translation\TranslationServiceProvider::class,
         Illuminate\Validation\ValidationServiceProvider::class,
         Illuminate\View\ViewServiceProvider::class,
-
         /*
          * Package Service Providers...
          */
@@ -178,7 +177,8 @@ return [
         \App\Providers\JwtAuthServiceProvider::class,
         Barryvdh\DomPDF\ServiceProvider::class,
         Elibyy\TCPDF\ServiceProvider::class,
-        \App\Providers\PdfInformeServiceProvider::class,
+        App\Providers\PdfInformeServiceProvider::class,
+        Maatwebsite\Excel\ExcelServiceProvider::class,
     ],
 
     /*
@@ -231,9 +231,9 @@ return [
         'View' => Illuminate\Support\Facades\View::class,
         'Servicios' => \App\Helpers\Helper::class,
         'JwtAuth' => \App\Helpers\JwtAuth::class,
-        'PDF' => Barryvdh\DomPDF\Facade::class,
+        //'PDF' => Barryvdh\DomPDF\Facade::class,
         'TCPDF' => Elibyy\TCPDF\Facades\TCPDF::class,
-        'InformePDF' => \App\Helpers\InformePDF::class,
+        'Excel' => Maatwebsite\Excel\Facades\Excel::class,
     ],
 
 ];

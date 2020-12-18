@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Hacienda;
 
+use App\Helpers\InformeXLS;
 use App\Http\Controllers\Controller;
 use App\Models\Bodega\EgresoBodega;
 use App\Models\Hacienda\Empleado;
@@ -15,10 +16,10 @@ use App\Models\Hacienda\LoteSeccionLaborEmpDet;
 use App\Models\Sistema\Calendario;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Helpers\InformePDF;
+use Maatwebsite\Excel\Facades\Excel;
 
 class EnfundeController extends Controller
 {
@@ -1503,6 +1504,45 @@ class EnfundeController extends Controller
                                     $build->Ln();
                                 endif;
                                 $pdf->generar("Saldos-Final.pdf");
+                            endif;
+                            break;
+                        case 'xls':
+                            if ($lotes !== null):
+                                $excel = function ($collection, $cabeceras, $titulo) {
+                                    return new InformeXLS($collection, $cabeceras, $titulo);
+                                };
+
+                                $cabeceras = array();
+                                $data = array();
+                                foreach ($detalle as $item):
+                                    $data_row = new \stdClass();
+                                    $data_row->idempleado = $item->idempleado;
+                                    $data_row->codigo = $item->codigo;
+                                    $data_row->empleado = $item->nombres;
+
+                                    foreach ($item->lotes as $lote):
+                                        if ($lote->reelevo !== null):
+                                            $data_row->reelevo = 1;
+                                            $data_row->codReelevo = $lote->reelevo->codigo;
+                                            $data_row->desReelevo = $lote->reelevo->nombres;
+                                        else:
+                                            $data_row->reelevo = 0;
+                                            $data_row->codReelevo = 0;
+                                            $data_row->desReelevo = "";
+                                        endif;
+                                        $data_row->lote = $lote->alias;
+                                        $data_row->presente = $lote->cant_pre;
+                                        $data_row->futuro = $lote->cant_fut;
+                                        array_push($data, $data_row);
+                                    endforeach;
+
+                                    if (count($cabeceras) == 0):
+                                        $cabeceras = array_keys((array)$data_row);
+                                    endif;
+                                endforeach;
+                                return Excel::download($excel($data, $cabeceras, 'Enfunde Lote Lotero'), 'data.xls');
+                            elseif ($material_saldos !== null):
+                                return 'Saldos';
                             endif;
                             break;
                         default:
