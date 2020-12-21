@@ -232,7 +232,7 @@ return [
         'Servicios' => \App\Helpers\Helper::class,
         'JwtAuth' => \App\Helpers\JwtAuth::class,
         //'PDF' => Barryvdh\DomPDF\Facade::class,
-        'TCPDF' => Elibyy\TCPDF\Facades\TCPDF::class,
+        'PDF' => Elibyy\TCPDF\Facades\TCPDF::class,
         'Excel' => Maatwebsite\Excel\Facades\Excel::class,
     ],
 
