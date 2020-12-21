@@ -776,6 +776,7 @@ class EnfundeController extends Controller
                         'idcalendar' => $idcalendar
                     ])->first();
 
+
                 $enfundeDetalle = Enfunde::select('id', 'idcalendar', 'fecha', 'presente', 'futuro', 'cerrado', 'estado')
                     ->where([
                         'idcalendar' => $idcalendar,
@@ -795,11 +796,10 @@ class EnfundeController extends Controller
                     }])->first();
 
                 $enfunde_status = new \stdClass();
-                $enfunde_status->status_presente = (bool)$enfundeDetalle->presente;
-                $enfunde_status->status_futuro = (bool)$enfundeDetalle->futuro;
-
                 $datos = array();
                 if (is_object($enfundeDetalle)) {
+                    $enfunde_status->status_presente = (bool)$enfundeDetalle->presente;
+                    $enfunde_status->status_futuro = (bool)$enfundeDetalle->futuro;
                     foreach ($enfundeDetalle->detalle as $detalle):
                         $data = new \stdClass();
                         $data->presente = array();
@@ -853,8 +853,9 @@ class EnfundeController extends Controller
                         }
                         array_push($datos, $data);
                     endforeach;
-                }
 
+
+                }
                 $this->out = $this->respuesta_json('success', 200, 'Se devuelven registros');
                 $this->out['dataEnfunde'] = $enfunde_status;
                 $this->out['dataArray'] = $datos;
