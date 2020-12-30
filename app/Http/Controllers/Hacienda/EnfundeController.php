@@ -1174,14 +1174,16 @@ class EnfundeController extends Controller
                 if ($lotes !== null || $material_saldos !== null):
                     $hacienda = Hacienda::where(['id' => $data->idhacienda])->first();
                     $calendario = Calendario::getCalendario($data->fecha);
-                    $detalle = Enfunde::groupBy('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'empleado.id', 'empleado.codigo', 'empleado.nombres')
+                    $detalle = Enfunde::orderBy('empleado.nombres')
+                        ->groupBy('HAC_ENFUNDES.id', 'HAC_ENFUNDES.idcalendar', 'empleado.id', 'empleado.codigo', 'empleado.nombres', 'cabeceraSeccion.has')
                         ->rightJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
                         ->rightJoin('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
                         ->rightJoin('HAC_LOTSEC_LABEMPLEADO as cabeceraSeccion', 'cabeceraSeccion.id', 'seccion.idcabecera')
                         ->rightJoin('HAC_EMPLEADOS as empleado', 'empleado.id', 'cabeceraSeccion.idempleado')
                         ->select('HAC_ENFUNDES.id as idenfunde', 'HAC_ENFUNDES.idcalendar', 'empleado.id as idempleado', 'empleado.codigo', 'empleado.nombres',
                             DB::raw('sum(detalle.cant_pre) as presente'),
-                            DB::raw('sum(detalle.cant_fut) as futuro'))
+                            DB::raw('sum(detalle.cant_fut) as futuro'),
+                            'cabeceraSeccion.has')
                         ->where(['HAC_ENFUNDES.id' => $data->id])
                         ->get();
 
@@ -1191,8 +1193,8 @@ class EnfundeController extends Controller
                                 //Seccion y enfunde
                                 $lotero->lotes = EnfundeDet::from('HAC_DET_ENFUNDES as detalle')
                                     ->where(['idenfunde' => $lotero->idenfunde])
-                                    ->groupBy('lseccion.alias', 'detalle.idreelevo')
-                                    ->select(DB::raw("RIGHT('' + LTRIM(lseccion.alias), 3) alias"),
+                                    ->groupBy('lseccion.alias', 'seccion.has', 'detalle.idreelevo')
+                                    ->select(DB::raw("RIGHT('0' + LTRIM(lseccion.alias), 3) alias"), 'seccion.has',
                                         DB::raw("sum(cant_pre) cant_pre"),
                                         DB::raw("sum(cant_fut) cant_fut"), 'detalle.idreelevo')
                                     ->join('HAC_LOTSEC_LABEMPLEADO_DET as seccion', 'seccion.id', 'detalle.idseccion')
@@ -1205,7 +1207,7 @@ class EnfundeController extends Controller
                                     ->with(['reelevo' => function ($query) {
                                         $query->select('id', 'codigo', 'cedula', 'nombres', 'nombre1', 'nombre2', 'apellido1', 'apellido2');
                                     }])
-                                    ->orderByRaw("RIGHT('' + LTRIM(lseccion.alias), 3)")
+                                    ->orderByRaw("RIGHT('0' + LTRIM(lseccion.alias), 3)")
                                     ->get();
                             endforeach;
                         elseif ($material_saldos !== null):
@@ -1270,7 +1272,7 @@ class EnfundeController extends Controller
                     switch ($extension):
                         case 'pdf':
                             if ($lotes !== null):
-                                $pdf = new InformePDF("Infome enfunde semanal - Lotero");
+                                $pdf = new InformePDF("$hacienda->detalle | Infome  enfunde semanal - Lotero");
                                 $fecha = date("d/m/Y");
                                 $hora = date("H:i:s");
                                 $pdf->cabecera($hacienda->detalle, "Fecha: $fecha\nHora: $hora");
@@ -1282,7 +1284,8 @@ class EnfundeController extends Controller
                                 $build->writeHTML("<hr>", true, false, false, false, '');
                                 $fill = $build->SetFillColor(230, 230, 230);
                                 $build->Cell(10, 0, '#', 0, 0, 'C', $fill);
-                                $build->Cell(20, 0, 'Lotes', 0, 0, 'C', $fill);
+                                $build->Cell(10, 0, 'Lotes', 0, 0, 'C', $fill);
+                                $build->Cell(10, 0, 'Has.', 0, 0, 'C', $fill);
                                 $build->Cell(50, 0, 'Reelevo', 0, 0, 'C', $fill);
                                 $build->Cell(40, 0, 'Presente', 0, 0, 'C', $fill);
                                 $build->Cell(40, 0, 'Futuro', 0, 0, 'C', $fill);
@@ -1310,8 +1313,14 @@ class EnfundeController extends Controller
                                     $total_futuro = 0;
                                     foreach ($lotero->lotes as $key => $lote):
                                         $build->Cell(10, 0, $key + 1, 0, 0, 'C');
-                                        $build->Cell(20, 0, $lote->alias, 0, 0, 'C');
+                                        $build->Cell(10, 0, $lote->alias, 0, 0, 'C');
 
+                                        if ($lote->reelevo)
+                                            $build->SetTextColor(220, 20, 60);
+
+                                        $build->Cell(10, 0, round($lote->has, 2), 0, 0, 'C');
+
+                                        $build->SetTextColor(0, 0, 0);
                                         $build->SetFont('Helvetica', '', 7);
                                         $reelevo = $lote->reelevo ? $lote->reelevo->apellido1 . " " . $lote->reelevo->nombre1 . " " . $lote->reelevo->nombre2 : '';
                                         $build->Cell(10, 0, $lote->reelevo ? $lote->reelevo->codigo : '', 0, 0, 'L');
@@ -1329,7 +1338,9 @@ class EnfundeController extends Controller
 
                                     $fill = $build->SetFillColor(245, 245, 245);
                                     $build->SetFont('Helvetica', 'B', 8);
-                                    $build->Cell(80, 0, '', 0, 0, 'C');
+                                    $build->Cell(20, 0, '', 0, 0, 'C');
+                                    $build->Cell(10, 0, round($lotero->has, 2), 0, 0, 'C');
+                                    $build->Cell(50, 0, '', 0, 0, 'C');
                                     $build->Cell(40, 0, $total_presente, 0, 0, 'C', $fill);
                                     $build->Cell(40, 0, $total_futuro, 0, 0, 'C', $fill);
                                     $build->Cell(40, 0, $total_presente + $total_futuro, 0, 0, 'C', $fill);
@@ -1380,7 +1391,7 @@ class EnfundeController extends Controller
                                 $build->Cell(40, 0, "| $empleado_minimo", 0, 0, 'L');
                                 $build->Ln();
 
-                                $pdf->generar("Enfunde-semanal.pdf");
+                                $pdf->generar("Enfunde-semanal-$hacienda->detalle.pdf");
 
                             elseif ($material_saldos !== null):
                                 $pdf = new InformePDF("Infome saldo final - loteros");
@@ -1504,7 +1515,7 @@ class EnfundeController extends Controller
                                     $build->Cell(25, 0, $sld_final, 0, 0, 'C');
                                     $build->Ln();
                                 endif;
-                                $pdf->generar("Saldos-Final.pdf");
+                                $pdf->generar("Saldos-Final-$hacienda->detalle.pdf");
                             endif;
                             break;
                         case 'xls':
