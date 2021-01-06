@@ -58,7 +58,7 @@ class EnfundeController extends Controller
             foreach ($periodos as $periodo):
                 $semanas = Calendario::selectRaw('distinct codigo')
                     ->where('periodo', $periodo)
-                    ->whereRaw('DATEPART(YEAR, fecha) = 2020')
+                    //->whereRaw('DATEPART(YEAR, fecha) = 2020')
                     ->get()->pluck('codigo');
                 $enfunde = Enfunde::groupBy('calendario.periodo')
                     ->rightJoin('SIS_CALENDARIO_DOLE as calendario', [
@@ -67,7 +67,7 @@ class EnfundeController extends Controller
                     ])
                     ->leftJoin('HAC_DET_ENFUNDES as detalle', 'detalle.idenfunde', 'HAC_ENFUNDES.id')
                     ->select('calendario.periodo', DB::raw('ISNULL(SUM(detalle.cant_pre) + SUM(detalle.cant_fut), 0) As total'))
-                    ->whereRaw('DATEPART(YEAR, HAC_ENFUNDES.fecha) = 2020')
+                    //->whereRaw('DATEPART(YEAR, HAC_ENFUNDES.fecha) = 2020')
                     ->whereIn('HAC_ENFUNDES.idcalendar', $semanas)
                     ->where('HAC_ENFUNDES.idhacienda', $hacienda->id)
                     ->get()->pluck('total');
@@ -196,10 +196,11 @@ class EnfundeController extends Controller
         try {
             $hacienda = $request->get('hacienda');
 
-            $enfundeSemanal = Enfunde::groupBy('calendario.periodo',
-                'calendario.semana', 'calendario.color', 'HAC_ENFUNDES.idhacienda',
-                'HAC_ENFUNDES.presente', 'HAC_ENFUNDES.futuro', 'HAC_ENFUNDES.cerrado',
-                'HAC_ENFUNDES.fecha', 'HAC_ENFUNDES.cerrado', 'HAC_ENFUNDES.id')
+            $enfundeSemanal = Enfunde::orderByRaw(DB::raw('DATEPART(YEAR,HAC_ENFUNDES.fecha) desc'))
+                ->groupBy('calendario.periodo',
+                    'calendario.semana', 'calendario.color', 'HAC_ENFUNDES.idhacienda',
+                    'HAC_ENFUNDES.presente', 'HAC_ENFUNDES.futuro', 'HAC_ENFUNDES.cerrado',
+                    'HAC_ENFUNDES.fecha', 'HAC_ENFUNDES.cerrado', 'HAC_ENFUNDES.id')
                 ->orderBy('calendario.periodo', 'desc')
                 ->orderBy('calendario.semana', 'desc')
                 ->orderBy('HAC_ENFUNDES.idhacienda')
