@@ -51,7 +51,8 @@ class MeteorologiaController extends Controller
                             $nw_horaSol->total = $hora_sol['horas'];
                             $nw_horaSol->updated_at = Carbon::now()->format(config('constants.format_date'));
                         }
-                        $nw_horaSol->save();
+
+                        //$nw_horaSol->save();
                     }
                 }
 
@@ -61,7 +62,7 @@ class MeteorologiaController extends Controller
                 if (count($datas_precipitacion) > 0) {
                     foreach ($datas_precipitacion as $precipitacion) {
                         $nw_precipitacion = Precipitacion::existe($precipitacion['fecha'], $precipitacion['hacienda']['id']);
-                        if (!is_object($nw_precipitacion)) {
+                        if ($nw_precipitacion == null) {
                             $nw_precipitacion = new Precipitacion();
                             $nw_precipitacion->fecha = $precipitacion['fecha'];
                             $nw_precipitacion->idhacienda = $precipitacion['hacienda']['id'];
@@ -81,7 +82,7 @@ class MeteorologiaController extends Controller
                 if (count($datas_micrometro) > 0) {
                     foreach ($datas_micrometro as $micrometro) {
                         $nw_micrometro = Micrometro::existe($micrometro['fecha']);
-                        if (!is_object($nw_micrometro)) {
+                        if ($nw_micrometro == null) {
                             $nw_micrometro = new Micrometro();
                             $nw_micrometro->fecha = $micrometro['fecha'];
                             $nw_micrometro->total = $micrometro['total'];
@@ -97,7 +98,7 @@ class MeteorologiaController extends Controller
                         //Modificar el dia anterior
                         $fecha_anterior = date('Y-m-d', strtotime($micrometro['fecha'] . " -1 days"));
                         $edit_micrometro = Micrometro::existe($fecha_anterior);
-                        if (!empty($edit_micrometro)) {
+                        if ($edit_micrometro !== null) {
                             $precipitacion_mm = 0;
 
                             if ($micrometro['calcPrecipitacion'] == 1) {
@@ -124,7 +125,7 @@ class MeteorologiaController extends Controller
                 if (count($datas_temperatura) > 0) {
                     foreach ($datas_temperatura as $temperatura) {
                         $nw_temperatura = Temperatura::existe($temperatura['fecha']);
-                        if (!is_object($nw_temperatura)) {
+                        if ($nw_temperatura == null) {
                             $nw_temperatura = new Temperatura();
                             $nw_temperatura->fecha = $temperatura['fecha'];
                             $nw_temperatura->tmin = $temperatura['tmin'];
@@ -138,7 +139,7 @@ class MeteorologiaController extends Controller
 
                         $fecha_anterior = date('Y-m-d', strtotime($temperatura['fecha'] . " -1 days"));
                         $nw_temperatura = Temperatura::existe($fecha_anterior);
-                        if (!is_object($nw_temperatura)) {
+                        if ($nw_temperatura == null) {
                             $nw_temperatura = new Temperatura();
                             $nw_temperatura->fecha = $fecha_anterior;
                             $nw_temperatura->tmax = $temperatura['tmax'];
@@ -157,7 +158,7 @@ class MeteorologiaController extends Controller
                 if (count($datas_termometro) > 0) {
                     foreach ($datas_termometro as $termometro) {
                         $nw_termometro = Termometro::existe($termometro['fecha']);
-                        if (!is_object($nw_termometro)) {
+                        if ($nw_termometro == null) {
                             $nw_termometro = new Termometro();
                             $nw_termometro->fecha = $termometro['fecha'];
                             $nw_termometro->tseco = $termometro['seco'];
@@ -178,7 +179,7 @@ class MeteorologiaController extends Controller
                 if (count($datas_viento) > 0) {
                     foreach ($datas_viento as $viento) {
                         $nw_viento = Viento::existe($viento['fecha']);
-                        if (!is_object($nw_viento)) {
+                        if ($nw_viento == null) {
                             $nw_viento = new Viento();
                             $nw_viento->fecha = $viento['fecha'];
                             $nw_viento->total = $viento['km'];
@@ -194,7 +195,7 @@ class MeteorologiaController extends Controller
                         //Modificar el dia anterior
                         $fecha_anterior = date('Y-m-d', strtotime($viento['fecha'] . " -1 days"));
                         $edit_viento = Viento::existe($fecha_anterior);
-                        if (!empty($edit_viento)) {
+                        if ($edit_viento !== null) {
                             $edit_viento->kmhora = round(abs($viento['km'] - $edit_viento->total) / 24, 2);
                             $edit_viento->updated_at = Carbon::now()->format(config('constants.format_date'));
                             $edit_viento->save();
