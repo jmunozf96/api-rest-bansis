@@ -9,8 +9,4 @@ class Termometro extends BaseModel
     protected $connection = 'sbn_pgsql';
     protected $table = 'cli_termometro';
 
-    static function existe($fecha)
-    {
-        return self::where(['fecha' => $fecha])->first();
-    }
 }

@@ -9,8 +9,4 @@ class Micrometro extends BaseModel
     protected $connection = 'sbn_pgsql';
     protected $table = 'cli_micrometro';
 
-    static function existe($fecha)
-    {
-        return self::where(['fecha' => $fecha])->first();
-    }
 }
