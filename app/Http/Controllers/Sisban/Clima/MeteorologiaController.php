@@ -101,7 +101,8 @@ class MeteorologiaController extends Controller
 
                         //Modificar el dia anterior
                         $fecha_anterior = date('Y-m-d', strtotime($micrometro['fecha'] . " -1 days"));
-                        $edit_micrometro = Micrometro::where(['fecha' => $fecha])->first();
+                        $edit_micrometro = Micrometro::where(['fecha' => $fecha_anterior])->first();
+
                         if ($edit_micrometro !== null) {
                             $precipitacion_mm = 0;
 
