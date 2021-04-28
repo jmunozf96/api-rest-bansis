@@ -37,7 +37,7 @@ class MeteorologiaController extends Controller
             if (count($params_array) > 0) {
                 DB::beginTransaction();
                 //Horas Sol
-               $datas_horaSol = $params_array['HoraSol'];
+                $datas_horaSol = $params_array['HoraSol'];
                 if (count($datas_horaSol) > 0) {
                     foreach ($datas_horaSol as $hora_sol) {
                         $fecha = date('Y-m-d', strtotime($hora_sol['fecha']));
@@ -115,7 +115,13 @@ class MeteorologiaController extends Controller
                             }
 
                             if ($micrometro['enrase'] == 1) {
-                                $edit_micrometro->evaporacion = abs($micrometro['total'] - ($micrometro['tenrase'] + $precipitacion_mm));
+                                $edit_micrometro->enrase = $micrometro['enrase'];
+                                $edit_micrometro->tenrase = $micrometro['tenrase'];
+                            }
+
+
+                            if ($edit_micrometro['enrase']) {
+                                $edit_micrometro->evaporacion = abs($micrometro['total'] - ($edit_micrometro->tenrase + $precipitacion_mm));
                             } else {
                                 $edit_micrometro->evaporacion = abs($micrometro['total'] - ($edit_micrometro->total + $precipitacion_mm));
                             }
