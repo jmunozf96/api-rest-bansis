@@ -90,11 +90,15 @@ class MeteorologiaController extends Controller
                             $nw_micrometro = new Micrometro();
                             $nw_micrometro->fecha = $fecha;
                             $nw_micrometro->total = $micrometro['total'];
+                            $nw_micrometro->enrase = $micrometro['enrase'];
+                            $nw_micrometro->tenrase = $micrometro['tenrase'];
                             $nw_micrometro->created_at = Carbon::now()->format(config('constants.format_date'));
                             $nw_micrometro->updated_at = Carbon::now()->format(config('constants.format_date'));
                             $nw_micrometro->save();
                         } else {
                             $nw_micrometro->total = $micrometro['total'];
+                            $nw_micrometro->enrase = $micrometro['enrase'];
+                            $nw_micrometro->tenrase = $micrometro['tenrase'];
                             $nw_micrometro->updated_at = Carbon::now()->format(config('constants.format_date'));
                             $nw_micrometro->update();
                         }
@@ -105,6 +109,7 @@ class MeteorologiaController extends Controller
 
                         if ($edit_micrometro !== null) {
                             $precipitacion_mm = 0;
+                            $micrometro_day_before = $edit_micrometro->total;
 
                             if ($micrometro['calcPrecipitacion'] == 1) {
                                 //Por lo general se escoge la precipitacion de la Hacienda Primo - codigo 1
@@ -114,17 +119,11 @@ class MeteorologiaController extends Controller
                                 }
                             }
 
-                            if ($micrometro['enrase'] == 1) {
-                                $edit_micrometro->enrase = $micrometro['enrase'];
-                                $edit_micrometro->tenrase = $micrometro['tenrase'];
+                            if (filter_var($edit_micrometro['enrase'], FILTER_VALIDATE_BOOL)) {
+                                $micrometro_day_before = $edit_micrometro->tenrase;
                             }
 
-
-                            if ($edit_micrometro['enrase']) {
-                                $edit_micrometro->evaporacion = abs($micrometro['total'] - ($edit_micrometro->tenrase + $precipitacion_mm));
-                            } else {
-                                $edit_micrometro->evaporacion = abs($micrometro['total'] - ($edit_micrometro->total + $precipitacion_mm));
-                            }
+                            $edit_micrometro->evaporacion = abs($micrometro['total'] - ($micrometro_day_before + $precipitacion_mm));
 
                             $edit_micrometro->updated_at = Carbon::now()->format(config('constants.format_date'));
                             $edit_micrometro->update();
